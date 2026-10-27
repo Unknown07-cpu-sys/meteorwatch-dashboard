@@ -12,6 +12,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from meteorwatch_agent import (
+    assess_event,
+    audit_saved_statuses,
+    build_agent_explanation,
+    run_agent_self_tests,
+)
+
 
 APP_TITLE = "METEORWATCH"
 DATA_FILENAME = "meteorwatch_full_review_report.csv"
@@ -282,85 +289,8 @@ def format_value(value: Any, digits: int = 3) -> str:
 
 
 def event_briefing(row: pd.Series) -> str:
-    """Create a transparent, rule-generated summary from fields and flags."""
-    date_text = (
-        row["date"].strftime("%Y-%m-%d %H:%M:%S GMT")
-        if pd.notna(row.get("date")) else "Date unavailable"
-    )
-    status = str(row.get("review_status", "Status unavailable"))
-    energy = row.get("energy", np.nan)
-    impact_energy = row.get("impact-e", np.nan)
-    altitude = row.get("alt", np.nan)
-    speed = row.get("component_speed", np.nan)
-
-    paragraphs = [
-        f"**Historical event:** {date_text}.",
-        (
-            "**Reported measurements:** total radiated energy = "
-            f"{format_value(energy)} × 10¹⁰ joules; estimated impact energy = "
-            f"{format_value(impact_energy)} kt; peak-brightness altitude = "
-            f"{format_value(altitude)} km; speed magnitude calculated from the "
-            f"entry-velocity components = {format_value(speed)} km/s."
-        ),
-    ]
-
-    if status == "Flagged by both methods":
-        paragraphs.append(
-            "**Why it appears for review:** both the energy-only IQR baseline "
-            "and Isolation Forest flagged this record under the current settings."
-        )
-    elif status == "Isolation Forest only":
-        paragraphs.append(
-            "**Why it appears for review:** Isolation Forest flagged this record "
-            "using the combination of log-energy, altitude, and component-derived "
-            "speed; the energy-only IQR baseline did not flag it."
-        )
-    elif status == "IQR baseline only":
-        paragraphs.append(
-            "**Why it appears for review:** the energy-only IQR baseline flagged "
-            "the reported energy, while Isolation Forest did not flag this record "
-            "under the current model settings."
-        )
-    elif status == "Baseline flagged; ML not assessed":
-        paragraphs.append(
-            "**Why it appears for review:** the energy-only IQR baseline flagged "
-            "the record, but the ML model could not assess it because at least "
-            "one required feature was missing."
-        )
-    elif status == "ML not assessed; baseline did not flag":
-        paragraphs.append(
-            "**Assessment status:** the baseline did not flag this record, but "
-            "the ML model could not assess it because at least one required "
-            "feature was missing. This is not an ML clearance."
-        )
-    else:
-        paragraphs.append(
-            "**Assessment status:** neither method flagged this record under "
-            "the current settings. That does not prove the event is normal, safe, "
-            "or fully characterized."
-        )
-
-    missing = []
-    for col, label in [
-        ("alt", "altitude"),
-        ("component_speed", "velocity components / calculated speed"),
-        ("map_latitude", "location coordinates"),
-    ]:
-        value = row.get(col, np.nan)
-        if value is None or pd.isna(value):
-            missing.append(label)
-    if missing:
-        paragraphs.append(
-            "**Data gaps:** unavailable measurements: " + ", ".join(missing) + "."
-        )
-
-    paragraphs.append(
-        "**Caution:** this is a rule-generated briefing based on the saved dataset. "
-        "A statistical flag is a prompt for human review, not a danger rating or "
-        "prediction of a future impact."
-    )
-    return "\n\n".join(paragraphs)
-
+    """Compatibility wrapper for the standalone, testable agent explanation."""
+    return build_agent_explanation(row)
 
 
 def event_picker_controls(
@@ -609,12 +539,13 @@ if search_text.strip():
     filtered = filtered[search_mask]
 
 # Tabs give the app a cleaner mission-control-style structure.
-tab_overview, tab_map, tab_explorer, tab_ai, tab_methods, tab_quality = st.tabs(
+tab_overview, tab_map, tab_explorer, tab_ai, tab_agent, tab_methods, tab_quality = st.tabs(
     [
         "Overview",
         "Event Map",
         "Event Explorer",
         "AI Briefing Assistant",
+        "Agent Test Lab",
         "Methods & Limitations",
         "Data Quality",
     ]
@@ -756,6 +687,9 @@ with tab_explorer:
                 st.write(f"Isolation Forest flag: {chosen.get('iforest_flag', 'Unavailable')}")
                 st.write(f"Isolation Forest score: {format_value(chosen.get('iforest_score'))}")
 
+            agent_assessment = assess_event(chosen)
+            st.markdown("**Agent-derived interpretation from saved flags**")
+            st.write(agent_assessment["decision_label"])
             st.markdown("**Rule-generated event briefing**")
             st.markdown(event_briefing(chosen))
             st.caption(
@@ -992,6 +926,88 @@ with tab_ai:
                     mime="text/markdown",
                     key="download_ai_briefing_v5",
                 )
+
+
+with tab_agent:
+    st.markdown("#### Test the agent's decision logic")
+    st.write(
+        "This lab checks whether METEORWATCH interprets saved baseline/model flags "
+        "consistently, preserves missing values, and keeps its scientific limits visible. "
+        "The examples are synthetic software tests—not verified fireball labels and not "
+        "a measurement of detector accuracy."
+    )
+
+    self_test_report = run_agent_self_tests()
+    passed_tests = int(self_test_report["Passed"].sum())
+    total_tests = int(len(self_test_report))
+    failed_tests = total_tests - passed_tests
+    test_col1, test_col2, test_col3 = st.columns(3)
+    test_col1.metric("Logic tests passed", f"{passed_tests}/{total_tests}")
+    test_col2.metric("Failed checks", f"{failed_tests}")
+    test_col3.metric("Test type", "Synthetic cases")
+    st.dataframe(self_test_report, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download agent self-test report (CSV)",
+        data=self_test_report.to_csv(index=False).encode("utf-8"),
+        file_name="meteorwatch_agent_self_tests.csv",
+        mime="text/csv",
+        key="download_agent_self_tests_v7",
+    )
+    st.caption(
+        "A passing test means the software followed the expected rule for that example. "
+        "It does not prove the detector finds real physical anomalies or predicts hazards."
+    )
+
+    st.markdown("#### Audit saved review statuses")
+    st.write(
+        "This optional audit reconstructs an event's interpretation from the saved "
+        "`baseline_flag`, `ml_assessed`, and `iforest_flag`, then compares it with the "
+        "saved `review_status`. Incomplete rows are counted as not comparable instead "
+        "of being treated as matches."
+    )
+    if st.button("Run consistency audit on the loaded report", key="run_agent_status_audit_v7"):
+        audit_counts, audit_mismatches = audit_saved_statuses(df)
+        st.session_state["meteorwatch_agent_audit_counts_v7"] = audit_counts
+        st.session_state["meteorwatch_agent_audit_mismatches_v7"] = audit_mismatches
+
+    audit_counts = st.session_state.get("meteorwatch_agent_audit_counts_v7")
+    audit_mismatches = st.session_state.get("meteorwatch_agent_audit_mismatches_v7")
+    if audit_counts is not None:
+        audit_a, audit_b, audit_c, audit_d = st.columns(4)
+        audit_a.metric("Rows compared", f"{audit_counts['comparable_rows']:,}")
+        audit_b.metric("Matches", f"{audit_counts['matching_rows']:,}")
+        audit_c.metric("Mismatches", f"{audit_counts['mismatching_rows']:,}")
+        audit_d.metric("Not comparable", f"{audit_counts['not_comparable_rows']:,}")
+        st.caption(
+            f"Loaded rows: {audit_counts['total_rows']:,}. Only rows with both known detector flags "
+            "and an assessed model result can be compared. A mismatch is a consistency-review item, "
+            "not proof that a physical event was misclassified."
+        )
+        if audit_mismatches is not None and not audit_mismatches.empty:
+            st.markdown("**Rows for review**")
+            st.dataframe(audit_mismatches, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download status mismatches (CSV)",
+                data=audit_mismatches.to_csv(index=False).encode("utf-8"),
+                file_name="meteorwatch_agent_status_mismatches.csv",
+                mime="text/csv",
+                key="download_agent_status_mismatches_v7",
+            )
+        elif audit_counts["comparable_rows"]:
+            st.write("No saved-status mismatches were found among comparable rows.")
+        else:
+            st.write(
+                "No rows had enough saved information for a status comparison. "
+                "Check that the CSV includes baseline_flag, ml_assessed, iforest_flag, and review_status."
+            )
+
+    st.markdown("#### How to read the agent's result")
+    st.warning(
+        "‘Flagged’ means a saved statistical method selected the record for review. "
+        "‘Not flagged’ is not the same as ‘safe’, and ‘ML not assessed’ is not the same "
+        "as ‘ML did not flag’. The agent explains the saved outputs; it does not independently "
+        "verify the NASA/JPL measurements or infer a future trajectory."
+    )
 
 with tab_methods:
     st.markdown("#### What the system does")

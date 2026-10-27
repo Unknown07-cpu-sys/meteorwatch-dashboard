@@ -362,6 +362,131 @@ def event_briefing(row: pd.Series) -> str:
     return "\n\n".join(paragraphs)
 
 
+
+def event_picker_controls(
+    rows: pd.DataFrame,
+    key_prefix: str,
+    all_rows: pd.DataFrame,
+) -> pd.DataFrame:
+    """Add local search, status/date filters, and sorting for long event lists."""
+    if rows.empty:
+        return rows.copy()
+
+    candidates = rows.copy()
+    st.markdown("#### Find an event")
+
+    search_col, year_col, status_col, sort_col = st.columns([2.2, 1.0, 1.4, 1.5])
+    with search_col:
+        query = st.text_input(
+            "Search events",
+            placeholder="Date, year, energy, status, coordinates…",
+            key=f"{key_prefix}_event_search",
+            help="Searches dates, energy, review status, explanation, and available coordinates.",
+        ).strip()
+
+    available_years = sorted(
+        candidates["date"].dropna().dt.year.unique().tolist(), reverse=True
+    )
+    with year_col:
+        selected_year = st.selectbox(
+            "Year",
+            options=["All years"] + available_years,
+            key=f"{key_prefix}_event_year",
+        )
+
+    status_options = ["All statuses"] + sorted(
+        candidates["review_status"].dropna().astype(str).unique().tolist()
+    )
+    with status_col:
+        selected_status = st.selectbox(
+            "Classify by status",
+            options=status_options,
+            key=f"{key_prefix}_event_status",
+        )
+
+    sort_options = [
+        "Newest first",
+        "Oldest first",
+        "Highest energy",
+        "Lowest energy",
+        "Flagged records first",
+        "Most unusual ML score",
+    ]
+    with sort_col:
+        sort_choice = st.selectbox(
+            "Sort events",
+            options=sort_options,
+            key=f"{key_prefix}_event_sort",
+        )
+
+    # Keep the selectable date bounds anchored to the full dataset so changes
+    # to the sidebar filters do not invalidate the widget's stored date range.
+    global_dates = pd.to_datetime(all_rows.get("date", pd.Series(dtype="datetime64[ns]")), errors="coerce").dropna()
+    if not global_dates.empty:
+        min_day = global_dates.min().date()
+        max_day = global_dates.max().date()
+        date_range = st.date_input(
+            "Limit to event date range (GMT)",
+            value=(min_day, max_day),
+            min_value=min_day,
+            max_value=max_day,
+            key=f"{key_prefix}_event_date_range",
+            help="Use the date range to narrow the event list before selecting a record.",
+        )
+        if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+            start_day, end_day = date_range
+            candidates = candidates[
+                candidates["date"].notna()
+                & (candidates["date"].dt.date >= start_day)
+                & (candidates["date"].dt.date <= end_day)
+            ]
+
+    if selected_year != "All years":
+        candidates = candidates[candidates["date"].dt.year == int(selected_year)]
+
+    if selected_status != "All statuses":
+        candidates = candidates[candidates["review_status"].astype(str) == selected_status]
+
+    if query:
+        search_columns = [
+            col for col in [
+                "date", "energy", "impact-e", "alt", "component_speed",
+                "review_status", "explanation", "lat", "lat-dir", "lon",
+                "lon-dir", "map_latitude", "map_longitude",
+            ] if col in candidates.columns
+        ]
+        searchable = candidates[search_columns].astype("string").fillna("").agg(" ".join, axis=1)
+        candidates = candidates[searchable.str.contains(query, case=False, na=False, regex=False)]
+
+    if sort_choice == "Newest first":
+        candidates = candidates.sort_values("date", ascending=False, na_position="last")
+    elif sort_choice == "Oldest first":
+        candidates = candidates.sort_values("date", ascending=True, na_position="last")
+    elif sort_choice == "Highest energy":
+        candidates = candidates.sort_values("energy", ascending=False, na_position="last")
+    elif sort_choice == "Lowest energy":
+        candidates = candidates.sort_values("energy", ascending=True, na_position="last")
+    elif sort_choice == "Most unusual ML score":
+        # More negative Isolation Forest decision scores are more unusual
+        # under this fitted model. Missing ML scores stay at the end.
+        if "iforest_score" in candidates.columns:
+            candidates = candidates.sort_values("iforest_score", ascending=True, na_position="last")
+        else:
+            candidates = candidates.sort_values("date", ascending=False, na_position="last")
+    elif sort_choice == "Flagged records first":
+        baseline = candidates.get("baseline_flag", pd.Series(False, index=candidates.index)).eq(True).fillna(False)
+        ml = candidates.get("iforest_flag", pd.Series(False, index=candidates.index)).eq(True).fillna(False)
+        candidates = candidates.assign(_picker_any_flag=(baseline | ml))
+        candidates = candidates.sort_values(
+            ["_picker_any_flag", "date"],
+            ascending=[False, False],
+            na_position="last",
+        ).drop(columns="_picker_any_flag")
+
+    st.caption(f"{len(candidates):,} events match these event-picker filters.")
+    return candidates
+
+
 st.title("🌠 METEORWATCH")
 st.subheader("Historical Fireball Intelligence")
 st.caption(
@@ -587,43 +712,49 @@ with tab_explorer:
 
     if not filtered.empty:
         st.markdown("#### Selected event briefing")
-        indexed = filtered.copy()
-        indexed["_row_id"] = indexed.index
-        row_ids = indexed["_row_id"].tolist()
+        picker_rows = event_picker_controls(filtered, "explorer", df)
+        if picker_rows.empty:
+            st.info("No events match these search and filter settings. Clear the search or widen the date range.")
+        else:
+            indexed = picker_rows.copy()
+            indexed["_row_id"] = indexed.index
+            row_ids = indexed["_row_id"].tolist()
 
-        def event_label(idx: int) -> str:
-            row = indexed.loc[indexed["_row_id"] == idx].iloc[0]
-            date_text = row["date"].strftime("%Y-%m-%d %H:%M:%S GMT") if pd.notna(row["date"]) else "Date unavailable"
-            return f"{date_text} · Energy {row['energy']:g} · {row['review_status']}"
+            def event_label(idx: int) -> str:
+                row = indexed.loc[indexed["_row_id"] == idx].iloc[0]
+                date_text = row["date"].strftime("%Y-%m-%d %H:%M:%S GMT") if pd.notna(row["date"]) else "Date unavailable"
+                return f"{date_text} · Energy {row['energy']:g} · {row['review_status']}"
 
-        chosen_id = st.selectbox("Choose an event", row_ids, format_func=event_label)
-        chosen = indexed.loc[indexed["_row_id"] == chosen_id].iloc[0]
-        brief_left, brief_right = st.columns(2)
-        with brief_left:
-            st.markdown("**Event measurements**")
-            st.write(f"Date/time: {chosen['date'] if pd.notna(chosen['date']) else 'Unavailable'} GMT")
-            st.write(f"Reported total radiated energy: {format_value(chosen.get('energy'))} × 10¹⁰ J")
-            st.write(f"Estimated impact energy: {format_value(chosen.get('impact-e'))} kt")
-            st.write(f"Altitude at peak brightness: {format_value(chosen.get('alt'))} km")
-            st.write(f"Speed magnitude from entry components: {format_value(chosen.get('component_speed'))} km/s")
-            if pd.notna(chosen.get("map_latitude")) and pd.notna(chosen.get("map_longitude")):
-                st.write(f"Reported peak-brightness coordinates: {chosen['map_latitude']:.3f}, {chosen['map_longitude']:.3f}")
-            else:
-                st.write("Reported peak-brightness coordinates: unavailable")
-        with brief_right:
-            st.markdown("**Detection results**")
-            st.write(f"Review status: {chosen.get('review_status', 'Unavailable')}")
-            st.write(f"Baseline flagged: {chosen.get('baseline_flag', 'Unavailable')}")
-            st.write(f"ML assessed: {chosen.get('ml_assessed', 'Unavailable')}")
-            st.write(f"Isolation Forest flag: {chosen.get('iforest_flag', 'Unavailable')}")
-            st.write(f"Isolation Forest score: {format_value(chosen.get('iforest_score'))}")
+            chosen_id = st.selectbox(
+                "Choose an event", row_ids, format_func=event_label, key="explorer_selected_event_id"
+            )
+            chosen = indexed.loc[indexed["_row_id"] == chosen_id].iloc[0]
+            brief_left, brief_right = st.columns(2)
+            with brief_left:
+                st.markdown("**Event measurements**")
+                st.write(f"Date/time: {chosen['date'] if pd.notna(chosen['date']) else 'Unavailable'} GMT")
+                st.write(f"Reported total radiated energy: {format_value(chosen.get('energy'))} × 10¹⁰ J")
+                st.write(f"Estimated impact energy: {format_value(chosen.get('impact-e'))} kt")
+                st.write(f"Altitude at peak brightness: {format_value(chosen.get('alt'))} km")
+                st.write(f"Speed magnitude from entry components: {format_value(chosen.get('component_speed'))} km/s")
+                if pd.notna(chosen.get("map_latitude")) and pd.notna(chosen.get("map_longitude")):
+                    st.write(f"Reported peak-brightness coordinates: {chosen['map_latitude']:.3f}, {chosen['map_longitude']:.3f}")
+                else:
+                    st.write("Reported peak-brightness coordinates: unavailable")
+            with brief_right:
+                st.markdown("**Detection results**")
+                st.write(f"Review status: {chosen.get('review_status', 'Unavailable')}")
+                st.write(f"Baseline flagged: {chosen.get('baseline_flag', 'Unavailable')}")
+                st.write(f"ML assessed: {chosen.get('ml_assessed', 'Unavailable')}")
+                st.write(f"Isolation Forest flag: {chosen.get('iforest_flag', 'Unavailable')}")
+                st.write(f"Isolation Forest score: {format_value(chosen.get('iforest_score'))}")
 
-        st.markdown("**Rule-generated event briefing**")
-        st.markdown(event_briefing(chosen))
-        st.caption(
-            "This briefing is generated from fixed rules and the record's fields; "
-            "it is not a generative-AI conclusion or a validated physical explanation."
-        )
+            st.markdown("**Rule-generated event briefing**")
+            st.markdown(event_briefing(chosen))
+            st.caption(
+                "This briefing is generated from fixed rules and the record's fields; "
+                "it is not a generative-AI conclusion or a validated physical explanation."
+            )
     else:
         st.info("No records match the current filters. Change the sidebar filters to inspect events.")
 
@@ -731,125 +862,129 @@ with tab_ai:
     )
 
     if filtered.empty:
-        st.info("No records match the current filters. Adjust the sidebar filters to choose an event.")
+        st.info("No records match the current sidebar filters. Adjust them to choose an event.")
     else:
-        ai_rows = filtered.copy()
-        ai_rows["_row_id"] = ai_rows.index.tolist()
-        ai_ids = ai_rows["_row_id"].tolist()
-
-        def ai_event_label(idx: int) -> str:
-            row = ai_rows.loc[ai_rows["_row_id"] == idx].iloc[0]
-            dt = row["date"].strftime("%Y-%m-%d %H:%M:%S GMT") if pd.notna(row["date"]) else "Date unavailable"
-            energy = format_value(row.get("energy"), 2)
-            return f"{dt} · Energy {energy} · {row.get('review_status', 'Status unavailable')}"
-
-        ai_selected_id = st.selectbox(
-            "Select a historical event", ai_ids, format_func=ai_event_label, key="ai_event_id"
-        )
-        ai_selected = ai_rows.loc[ai_rows["_row_id"] == ai_selected_id].iloc[0]
-
-        if provider == "No API — built-in briefing (free)":
-            ai_mode_options = [
-                "Generate an event briefing",
-                "Explain the detection status",
-                "Explain missing measurements and uncertainty",
-            ]
+        ai_candidate_rows = event_picker_controls(filtered, "ai", df)
+        if ai_candidate_rows.empty:
+            st.info("No events match these search and filter settings. Clear the search or widen the date range.")
         else:
-            ai_mode_options = [
-                "Generate an event briefing",
-                "Explain the detection status",
-                "Explain missing measurements and uncertainty",
-                "Answer my question about this record",
-            ]
+            ai_rows = ai_candidate_rows.copy()
+            ai_rows["_row_id"] = ai_rows.index.tolist()
+            ai_ids = ai_rows["_row_id"].tolist()
 
-        ai_mode = st.selectbox(
-            "What should the assistant explain?",
-            ai_mode_options,
-            key="ai_mode",
-        )
+            def ai_event_label(idx: int) -> str:
+                row = ai_rows.loc[ai_rows["_row_id"] == idx].iloc[0]
+                dt = row["date"].strftime("%Y-%m-%d %H:%M:%S GMT") if pd.notna(row["date"]) else "Date unavailable"
+                energy = format_value(row.get("energy"), 2)
+                return f"{dt} · Energy {energy} · {row.get('review_status', 'Status unavailable')}"
 
-        if ai_mode == "Generate an event briefing":
-            user_question = "Generate a concise, plain-language briefing for this historical record."
-        elif ai_mode == "Explain the detection status":
-            user_question = "Explain the saved baseline and Isolation Forest status for this event, including whether ML assessed it."
-        elif ai_mode == "Explain missing measurements and uncertainty":
-            user_question = "Explain which measurements are unavailable and how that limits interpretation of this record."
-        else:
-            user_question = st.text_area(
-                "Your question",
-                placeholder="Example: What can we conclude from this record, and what can’t we conclude?",
-                max_chars=700,
-                key="ai_custom_question",
-            ).strip()
+            ai_selected_id = st.selectbox(
+                "Select a historical event", ai_ids, format_func=ai_event_label, key="ai_event_id"
+            )
+            ai_selected = ai_rows.loc[ai_rows["_row_id"] == ai_selected_id].iloc[0]
 
-        st.caption(
-            "Only the selected event's allowlisted fields, brief project-level counts, and your question are sent to the selected provider. "
-            "The full CSV is not submitted."
-        )
-
-        if st.button("Generate briefing", type="primary", key="generate_ai_briefing_v4"):
-            if not user_question:
-                st.warning("Please enter a question before generating a briefing.")
-            elif provider != "No API — built-in briefing (free)" and not api_key.strip():
-                st.warning("Enter your own provider API key, or select the no-API option.")
+            if provider == "No API — built-in briefing (free)":
+                ai_mode_options = [
+                    "Generate an event briefing",
+                    "Explain the detection status",
+                    "Explain missing measurements and uncertainty",
+                ]
             else:
-                with st.spinner("Preparing the event briefing…"):
-                    try:
-                        if provider == "No API — built-in briefing (free)":
-                            result = event_briefing(ai_selected)
-                            result += (
-                                "\n\n**No-API mode:** This is generated from fixed rules and saved fields. "
-                                "It does not interpret an open-ended question with a language model."
-                            )
-                            shown_model = "Built-in rule-based briefing (no API)"
-                        else:
-                            result = make_ai_briefing(
-                                ai_selected,
-                                user_question,
-                                provider=api_provider_name,
-                                api_key=api_key,
-                                model=model_name,
-                                base_url=base_url,
-                            )
-                            shown_model = f"{provider} · {model_name}"
+                ai_mode_options = [
+                    "Generate an event briefing",
+                    "Explain the detection status",
+                    "Explain missing measurements and uncertainty",
+                    "Answer my question about this record",
+                ]
 
-                        st.session_state["meteorwatch_ai_result"] = result
-                        st.session_state["meteorwatch_ai_result_key"] = (
-                            str(ai_selected.get("date")), str(ai_selected_id), ai_mode,
-                            user_question, provider, model_name,
-                        )
-                        st.session_state["meteorwatch_ai_result_provider"] = shown_model
-                    except Exception as exc:
-                        # Never display raw exception strings because some providers
-                        # may include request details. Do not log the supplied API key.
-                        st.error(
-                            f"The briefing request failed ({type(exc).__name__}). Check the API key, "
-                            "model name, endpoint, rate limit, and provider account. "
-                            "The no-API rule-based briefing remains available."
-                        )
+            ai_mode = st.selectbox(
+                "What should the assistant explain?",
+                ai_mode_options,
+                key="ai_mode",
+            )
 
-        expected_key = (
-            str(ai_selected.get("date")), str(ai_selected_id), ai_mode,
-            user_question, provider, model_name,
-        )
-        if (
-            st.session_state.get("meteorwatch_ai_result")
-            and st.session_state.get("meteorwatch_ai_result_key") == expected_key
-        ):
-            st.markdown("---")
-            st.markdown("#### Event briefing")
-            st.markdown(st.session_state["meteorwatch_ai_result"])
+            if ai_mode == "Generate an event briefing":
+                user_question = "Generate a concise, plain-language briefing for this historical record."
+            elif ai_mode == "Explain the detection status":
+                user_question = "Explain the saved baseline and Isolation Forest status for this event, including whether ML assessed it."
+            elif ai_mode == "Explain missing measurements and uncertainty":
+                user_question = "Explain which measurements are unavailable and how that limits interpretation of this record."
+            else:
+                user_question = st.text_area(
+                    "Your question",
+                    placeholder="Example: What can we conclude from this record, and what can’t we conclude?",
+                    max_chars=700,
+                    key="ai_custom_question",
+                ).strip()
+
             st.caption(
-                f"Generated by {st.session_state.get('meteorwatch_ai_result_provider', provider)}. "
-                "AI output should be checked against the record and project methods."
+                "Only the selected event's allowlisted fields, brief project-level counts, and your question are sent to the selected provider. "
+                "The full CSV is not submitted."
             )
-            st.download_button(
-                "Download briefing as Markdown",
-                data=st.session_state["meteorwatch_ai_result"].encode("utf-8"),
-                file_name="meteorwatch_event_briefing.md",
-                mime="text/markdown",
-                key="download_ai_briefing_v4",
+
+            if st.button("Generate briefing", type="primary", key="generate_ai_briefing_v5"):
+                if not user_question:
+                    st.warning("Please enter a question before generating a briefing.")
+                elif provider != "No API — built-in briefing (free)" and not api_key.strip():
+                    st.warning("Enter your own provider API key, or select the no-API option.")
+                else:
+                    with st.spinner("Preparing the event briefing…"):
+                        try:
+                            if provider == "No API — built-in briefing (free)":
+                                result = event_briefing(ai_selected)
+                                result += (
+                                    "\n\n**No-API mode:** This is generated from fixed rules and saved fields. "
+                                    "It does not interpret an open-ended question with a language model."
+                                )
+                                shown_model = "Built-in rule-based briefing (no API)"
+                            else:
+                                result = make_ai_briefing(
+                                    ai_selected,
+                                    user_question,
+                                    provider=api_provider_name,
+                                    api_key=api_key,
+                                    model=model_name,
+                                    base_url=base_url,
+                                )
+                                shown_model = f"{provider} · {model_name}"
+
+                            st.session_state["meteorwatch_ai_result"] = result
+                            st.session_state["meteorwatch_ai_result_key"] = (
+                                str(ai_selected.get("date")), str(ai_selected_id), ai_mode,
+                                user_question, provider, model_name,
+                            )
+                            st.session_state["meteorwatch_ai_result_provider"] = shown_model
+                        except Exception as exc:
+                            # Never display raw exception strings because some providers
+                            # may include request details. Do not log the supplied API key.
+                            st.error(
+                                f"The briefing request failed ({type(exc).__name__}). Check the API key, "
+                                "model name, endpoint, rate limit, and provider account. "
+                                "The no-API rule-based briefing remains available."
+                            )
+
+            expected_key = (
+                str(ai_selected.get("date")), str(ai_selected_id), ai_mode,
+                user_question, provider, model_name,
             )
+            if (
+                st.session_state.get("meteorwatch_ai_result")
+                and st.session_state.get("meteorwatch_ai_result_key") == expected_key
+            ):
+                st.markdown("---")
+                st.markdown("#### Event briefing")
+                st.markdown(st.session_state["meteorwatch_ai_result"])
+                st.caption(
+                    f"Generated by {st.session_state.get('meteorwatch_ai_result_provider', provider)}. "
+                    "AI output should be checked against the record and project methods."
+                )
+                st.download_button(
+                    "Download briefing as Markdown",
+                    data=st.session_state["meteorwatch_ai_result"].encode("utf-8"),
+                    file_name="meteorwatch_event_briefing.md",
+                    mime="text/markdown",
+                    key="download_ai_briefing_v5",
+                )
 
 with tab_methods:
     st.markdown("#### What the system does")

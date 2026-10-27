@@ -1,52 +1,45 @@
-# METEORWATCH v7 — Agent Explanation Engine & Test Lab
+# METEORWATCH v8 — Structured CSV Exports
 
-This update focuses on the assigned **Member 4 — Agent & Testing** responsibilities. It adds a standalone, testable agent module and an **Agent Test Lab** tab in the Streamlit dashboard.
+This update improves the Event Explorer's CSV downloads without changing the underlying detector results.
 
 ## What's new
 
-- **Structured event explanations:** each selected event gets an agent-derived interpretation, saved baseline/model reasoning, available measurements, missing-field notes, and a clear scientific caution.
-- **Missing-value handling:** an unavailable Isolation Forest flag remains unknown; `ML not assessed` is not rewritten as `ML did not flag`. Missing measurements are never silently changed to zero.
-- **Nine synthetic self-tests:** cover the combinations of flags, unassessed rows, missing model inputs, missing energy, and required scientific caution.
-- **Saved-status consistency audit:** optionally compares the review status saved in the CSV with a decision reconstructed from its saved flags. Incomplete rows are recorded as not comparable rather than matches.
-- **Downloadable test/audit reports:** download the synthetic test results and any status mismatches as CSV files.
-- **Standalone agent logic:** `meteorwatch_agent.py` separates the logic from Streamlit so it can be unit-tested and reused.
+- **Structured review report:** one event per row, with a stable record reference based on the source row, readable field names and units, saved review status, agent-derived interpretation, detector flags, explanations, missing-data notes, and a suggested review action.
+- **Review queue ordering:** records flagged by both methods appear first, followed by other flagged records and coverage/status checks. This is only a review workflow order; it is **not** a danger ranking.
+- **Explicit assessment state:** when ML is marked as not assessed, the structured report displays `Not assessed`, not `No` under the Isolation Forest flag.
+- **Model-score context:** when available, the score gets an interpretation note; it is not described as a danger score.
+- **Technical export preserved:** a separate download retains the filtered source/technical columns for analysis and reproducibility.
+- **Excel-friendly encoding:** CSV downloads use UTF-8 with BOM so labels such as units and symbols are more likely to display correctly in Excel.
 
 ## Files to add or replace
 
-1. Replace `app.py` with the provided v7 version.
-2. **Add `meteorwatch_agent.py` to the same repository folder as `app.py`.** This file is required by the updated app.
-3. Add `test_meteorwatch_agent.py` to the repository if you'd like to keep the local unit tests with the project. The deployed dashboard does not need this test file to run.
-4. Keep `requirements.txt` and merge `.gitignore` with your current ignore rules if needed.
-5. Keep `meteorwatch_full_review_report.csv` unchanged in the same folder as `app.py`.
-6. Do not upload API keys, `.env` files, or `.streamlit/secrets.toml` to a public repository.
-7. Commit changes to GitHub and let Streamlit Community Cloud redeploy.
+1. Replace `app.py` with the v8 version.
+2. Replace `meteorwatch_agent.py` with the v8 version; the app imports the new export function from this file.
+3. Optionally keep `test_meteorwatch_agent.py` in your repository for reproducibility; Streamlit does not need it to run.
+4. Keep your existing `requirements.txt` unless you changed it independently. The provided copy matches the current app's imports.
+5. Keep the existing `meteorwatch_full_review_report.csv` unchanged in the repository beside `app.py`. The update ZIP does not include this data file.
+6. Keep your `.gitignore`; merge it with existing rules rather than overwriting any custom rules.
+7. Commit the changes to GitHub and wait for Streamlit Community Cloud to redeploy.
 
-## Optional local test
+## Downloads after deployment
 
-From the repository root, run:
+In **Event Explorer**, the two options are:
+
+- `meteorwatch_structured_review_report.csv` — human-readable review report with explanations and review actions.
+- `meteorwatch_filtered_technical_data.csv` — filtered source/technical columns.
+
+The structured file is sorted by review workflow category, not physical risk. A flag is a prompt for human review, not proof of a danger or confirmed anomaly. An unflagged event is not proven safe, and METEORWATCH does not predict future impacts.
+
+## Validation performed
+
+- Python syntax compilation passed for `app.py`, `meteorwatch_agent.py`, and `test_meteorwatch_agent.py`.
+- All 6 Python unit tests passed.
+- All 9 synthetic Agent Test Lab cases passed through the test suite.
+- A synthetic export smoke test confirmed the column layout, priority ordering, and explicit `Not assessed` label.
+- The live Streamlit interface was not launched in this environment. Confirm both download buttons in the deployed dashboard after redeployment.
+
+Run tests locally from the project folder with:
 
 ```bash
 python -m unittest -v
 ```
-
-The tests use synthetic records. They check software behaviour—not physical truth, detector accuracy, or the ability to predict future impacts.
-
-## Verify after deployment
-
-Open the **Agent Test Lab** tab and check that all nine synthetic self-tests pass. Then run **Run consistency audit on the loaded report**. If there are status mismatches, download the CSV and check the saved report pipeline before changing any scientific interpretation. Some rows will be not comparable because their saved model result is missing or incomplete.
-
-## Scientific limitations
-
-- A detector flag is a prompt for human review, not proof of danger.
-- A record not flagged by either method is not proven safe or normal.
-- Missing model results are not negative predictions.
-- The consistency audit checks agreement between saved fields; it is not independent scientific validation.
-- METEORWATCH analyses historical fireball data. It does not predict future impacts or issue operational warnings.
-
-## Validation performed for this update
-
-- Python syntax compilation passed for `app.py`, `meteorwatch_agent.py`, and `test_meteorwatch_agent.py`.
-- All 4 `unittest` cases passed.
-- All 9 synthetic Agent Test Lab scenarios passed.
-- A small synthetic saved-status audit produced the expected results.
-- The Streamlit interface could not be launched in this build environment because Streamlit is not installed here. Please confirm the visible UI in the deployed app after redeployment.

@@ -1,39 +1,35 @@
-# METEORWATCH v4 — Optional API / Bring Your Own Key
+# METEORWATCH v5 — Searchable Historical Event Picker
 
-This patch replaces the fixed, owner-configured Gemini key flow with three options:
+This update improves the long event dropdown in both **Event Explorer** and **AI Briefing Assistant**. The same underlying dataset and briefing logic are retained.
 
-1. **No API — built-in briefing (free):** uses the saved fields and fixed rules. No LLM is called.
-2. **OpenRouter — free-model router:** the visitor enters their own OpenRouter key; the app requests `openrouter/free` so that it routes to available free models. Free-model availability/rate limits can vary.
-3. **Google Gemini API:** the visitor enters their own Gemini API key and can choose the model. `gemini-3.5-flash-lite` is the default model; Google's current pricing page lists free-tier input/output pricing for this model, but the user's project eligibility, quota, and provider terms still apply.
-4. **Custom OpenAI-compatible API:** the visitor supplies an HTTPS base URL, model name, and key. This works only with providers implementing the OpenAI-compatible `/chat/completions` endpoint (for example, compatible deployments of Groq/OpenRouter), not literally every API format.
+## What's added
 
-## Files to update
+- **Search events** by date/year, energy, impact energy, altitude, review status, explanation, and available coordinates.
+- **Year filter** to narrow the list to a specific calendar year.
+- **Review-status filter** to show only a category such as Isolation Forest only, IQR baseline only, flagged by both, or not assessed.
+- **Event date range** with GMT dates to narrow the historical period.
+- **Sorting** by newest, oldest, highest energy, lowest energy, flagged records first, or most unusual Isolation Forest score.
+- A visible count of how many records match the event-picker filters.
 
-- Replace `app.py` with this package's `app.py`.
-- Replace `requirements.txt` with this package's `requirements.txt`.
-- Keep `meteorwatch_full_review_report.csv` in the repository.
-- Do not add any user API key to GitHub or a file.
+The new filters are local to each tab's event picker and are applied on top of the dashboard's existing sidebar filters. The actual event selector now contains only the records left after these filters.
 
-## Security and data handling
+## Deploy to the existing Streamlit app
 
-- The user-supplied key is displayed as a password input and the app code does not intentionally write it to disk, CSV, or repository.
-- **Important:** when a user enters a key into this public Streamlit app, it passes through the Streamlit app server to make the API call. Users should only enter a key if they trust the app operator/hosting service. The selected provider receives the request payload. Do not submit personal/confidential information.
-- Only a single selected event's allowlisted fields, a few fixed dataset counts/methodology details, and the question are sent to the provider; the full CSV is not sent.
-- API keys should be treated as sensitive credentials. If a key is accidentally exposed, revoke it from the provider dashboard.
-- No API mode keeps a rule-based briefing available regardless of API availability.
-- LLM outputs may be wrong; anomaly flags are review prompts, not danger ratings or predictions.
+1. Download and extract the ZIP.
+2. In the GitHub repository connected to your Streamlit app, replace `app.py` and `requirements.txt` with these files.
+3. **Keep `meteorwatch_full_review_report.csv` unchanged** in the root of the repository.
+4. Commit the changes and wait for Streamlit Community Cloud to redeploy.
+5. Open the **Event Explorer** tab and **AI Briefing Assistant** tab. Search for a year such as `2013`, use the year filter, set a date range, change the sorting, and confirm the event dropdown becomes shorter.
+6. Generate a built-in no-API briefing to verify the selected event still flows into the existing briefing feature.
 
-## Free options caveats
+## Notes
 
-Free tiers are subject to provider terms, per-model availability, usage/rate limits and data-handling policies. Do not promise unlimited free usage. The OpenRouter `openrouter/free` model router is intended to route to available free models; availability and rate limits may change. Gemini free-tier use has its own constraints and Google's pricing page notes free-tier content may be used to improve products. Check current terms/pricing before use.
+- Existing API-provider options and the built-in no-API briefing are unchanged.
+- The event sort called “Most unusual ML score” places more-negative Isolation Forest decision scores first. Rows without an ML score are placed at the end.
+- Search and filters only help navigate the stored historical report. They do not retrieve new events from NASA/JPL.
+- Event locations are reported peak-brightness locations, not confirmed impact sites; anomaly flags are review prompts, not danger predictions.
 
-## Deploy
+## Validation performed
 
-Upload/commit the new `app.py` and `requirements.txt` to your existing public GitHub repository. Keep `meteorwatch_full_review_report.csv`. Streamlit Community Cloud should redeploy automatically. Test the no-API mode first; then optionally test a user's own key.
-
-## Current docs checked on 27 October 2026
-
-- Gemini pricing: https://ai.google.dev/gemini-api/docs/pricing
-- Gemini models: https://ai.google.dev/gemini-api/docs/models
-- OpenRouter free-model router: https://openrouter.ai/docs/guides/routing/routers/free-router
-- Groq OpenAI compatibility: https://console.groq.com/docs/openai
+- Python syntax compilation passed for `app.py`.
+- The Streamlit UI has not been run against the live app from this environment. After deploying, manually check both event pickers and the built-in no-API briefing as listed above.

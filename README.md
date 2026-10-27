@@ -1,35 +1,37 @@
-# METEORWATCH v5 — Searchable Historical Event Picker
+# METEORWATCH v6 — Data Quality & Model Coverage
 
-This update improves the long event dropdown in both **Event Explorer** and **AI Briefing Assistant**. The same underlying dataset and briefing logic are retained.
+This update adds a **Data Quality** tab to the existing v5 app. It makes field completeness, ML coverage, structural checks, and status counts easier to inspect and export.
 
 ## What's added
 
-- **Search events** by date/year, energy, impact energy, altitude, review status, explanation, and available coordinates.
-- **Year filter** to narrow the list to a specific calendar year.
-- **Review-status filter** to show only a category such as Isolation Forest only, IQR baseline only, flagged by both, or not assessed.
-- **Event date range** with GMT dates to narrow the historical period.
-- **Sorting** by newest, oldest, highest energy, lowest energy, flagged records first, or most unusual Isolation Forest score.
-- A visible count of how many records match the event-picker filters.
+- Summary of total rows, ML-assessed rows, ML-not-assessed rows, and records with valid map coordinates.
+- Field completeness table and chart, including missing counts and percentages for source and derived measurements available in the report.
+- Structural checks for missing dates, unavailable/invalid map coordinates, missing/non-positive energy, incomplete Isolation Forest feature rows (when components are present), and exact duplicate rows.
+- Downloadable CSVs for field completeness and review-status breakdown.
+- More visible caveats: completeness is not measurement accuracy, and an ML-not-assessed record is not an ML-negative record.
+- `.gitignore` excludes `__pycache__`, Python bytecode, secrets files, and common local editor/OS files.
 
-The new filters are local to each tab's event picker and are applied on top of the dashboard's existing sidebar filters. The actual event selector now contains only the records left after these filters.
-
-## Deploy to the existing Streamlit app
+## Install on the existing GitHub + Streamlit deployment
 
 1. Download and extract the ZIP.
-2. In the GitHub repository connected to your Streamlit app, replace `app.py` and `requirements.txt` with these files.
-3. **Keep `meteorwatch_full_review_report.csv` unchanged** in the root of the repository.
-4. Commit the changes and wait for Streamlit Community Cloud to redeploy.
-5. Open the **Event Explorer** tab and **AI Briefing Assistant** tab. Search for a year such as `2013`, use the year filter, set a date range, change the sorting, and confirm the event dropdown becomes shorter.
-6. Generate a built-in no-API briefing to verify the selected event still flows into the existing briefing feature.
+2. In the repository connected to Streamlit, replace `app.py` and `requirements.txt` with the provided files.
+3. Add the provided `.gitignore` at the repository root (merge with an existing `.gitignore` rather than replacing unrelated rules).
+4. Keep `meteorwatch_full_review_report.csv` in the repository unchanged.
+5. Remove any accidentally committed `__pycache__/` directory or `.pyc` files. If they exist in the GitHub repository, delete them from the repository and commit that deletion. `.gitignore` prevents them from being added again going forward, but does not untrack files already committed.
+6. Do not commit `.streamlit/secrets.toml`, API keys, or `.env` files.
+7. Commit the update and allow Streamlit Community Cloud to redeploy.
+8. Open the **Data Quality** tab. Check the four summary metrics, field completeness table, structural checks, and both CSV download buttons.
 
-## Notes
+## Important interpretation notes
 
-- Existing API-provider options and the built-in no-API briefing are unchanged.
-- The event sort called “Most unusual ML score” places more-negative Isolation Forest decision scores first. Rows without an ML score are placed at the end.
-- Search and filters only help navigate the stored historical report. They do not retrieve new events from NASA/JPL.
-- Event locations are reported peak-brightness locations, not confirmed impact sites; anomaly flags are review prompts, not danger predictions.
+- Quality diagnostics are structural checks; they do not validate the physical accuracy of every reported value.
+- Exact duplicate counts compare complete loaded rows only, so differently formatted versions of the same event may not be detected.
+- The model-coverage count reflects the `ml_assessed` field in the supplied exported report. It is not recomputed in the dashboard.
+- The map displays reported peak-brightness locations, not confirmed impact sites.
+- Anomaly flags are review prompts, not danger predictions.
 
 ## Validation performed
 
-- Python syntax compilation passed for `app.py`.
-- The Streamlit UI has not been run against the live app from this environment. After deploying, manually check both event pickers and the built-in no-API briefing as listed above.
+- Python syntax compilation completed.
+- ZIP contents checked to exclude `__pycache__/` and `.pyc` files.
+- The Streamlit interface has not been launched against the live website from this environment. Run the manual checks above after deploying.

@@ -7,7 +7,10 @@ import unittest
 
 import pandas as pd
 
-from meteorwatch_agent import assess_event, run_agent_self_tests, build_agent_explanation
+from meteorwatch_agent import (
+    assess_event, run_agent_self_tests, build_agent_explanation,
+    build_structured_review_export,
+)
 
 
 class MeteorwatchAgentTests(unittest.TestCase):
@@ -60,6 +63,41 @@ class MeteorwatchAgentTests(unittest.TestCase):
         })
         self.assertIn("Unavailable in this record", explanation)
         self.assertNotIn("0.000 × 10¹⁰ joules", explanation)
+
+
+    def test_structured_export_has_readable_groups_and_units(self):
+        frame = pd.DataFrame([
+            {**self.complete, "baseline_flag": True, "iforest_flag": True,
+             "ml_assessed": True, "review_status": "Flagged by both methods",
+             "iforest_score": -0.21, "lat": 10.0, "lat-dir": "N", "lon": 20.0, "lon-dir": "E"},
+            {**self.complete, "baseline_flag": False, "iforest_flag": False,
+             "ml_assessed": True, "review_status": "Neither method flagged",
+             "iforest_score": 0.08},
+        ])
+        export = build_structured_review_export(frame)
+        self.assertEqual(len(export), 2)
+        self.assertIn("Reported radiated energy (×10¹⁰ J)", export.columns)
+        self.assertIn("IQR baseline explanation", export.columns)
+        self.assertIn("Suggested review action", export.columns)
+        self.assertEqual(export.iloc[0]["Agent interpretation from saved flags"], "Flagged by both methods")
+        self.assertEqual(export.iloc[0]["IQR baseline flagged"], "Yes")
+        self.assertEqual(export.iloc[1]["IQR baseline flagged"], "No")
+        self.assertIn("not a safety clearance", export.iloc[1]["IQR baseline explanation"])
+
+    def test_structured_export_shows_unassessed_model_explicitly(self):
+        frame = pd.DataFrame([{
+            **self.complete,
+            "baseline_flag": False,
+            "iforest_flag": None,
+            "ml_assessed": False,
+            "review_status": "ML not assessed; baseline did not flag",
+        }])
+        export = build_structured_review_export(frame)
+        self.assertEqual(export.iloc[0]["Isolation Forest assessed"], "No")
+        self.assertEqual(export.iloc[0]["Isolation Forest flagged"], "Not assessed")
+        self.assertIn("did not assess", export.iloc[0]["Isolation Forest explanation"])
+        self.assertIn("Coverage / status check", export.iloc[0]["Review queue group"])
+
 
 
 if __name__ == "__main__":

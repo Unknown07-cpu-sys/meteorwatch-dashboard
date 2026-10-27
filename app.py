@@ -16,6 +16,7 @@ from meteorwatch_agent import (
     assess_event,
     audit_saved_statuses,
     build_agent_explanation,
+    build_structured_review_export,
     run_agent_self_tests,
 )
 
@@ -641,12 +642,31 @@ with tab_explorer:
         ] if col in filtered.columns
     ]
     st.dataframe(filtered[table_columns], use_container_width=True, hide_index=True)
-    st.download_button(
-        "Download current filtered records (CSV)",
-        data=filtered.drop(columns=["map_latitude", "map_longitude"], errors="ignore").to_csv(index=False).encode("utf-8"),
-        file_name="meteorwatch_filtered_report.csv",
-        mime="text/csv",
+    st.caption(
+        "The structured export groups event identity, measurements with units, detection results, "
+        "agent explanations, missing fields and suggested review actions. Records needing review "
+        "appear first; this ordering is not a hazard ranking."
     )
+    structured_export = build_structured_review_export(filtered)
+    export_left, export_right = st.columns(2)
+    with export_left:
+        st.download_button(
+            "Download structured review report (CSV)",
+            data=structured_export.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+            file_name="meteorwatch_structured_review_report.csv",
+            mime="text/csv",
+            help="One row per event, with readable units, decision explanations, missing-data notes and a suggested review action.",
+            key="download_structured_review_v8",
+        )
+    with export_right:
+        st.download_button(
+            "Download technical data export (CSV)",
+            data=filtered.drop(columns=["map_latitude", "map_longitude"], errors="ignore").to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+            file_name="meteorwatch_filtered_technical_data.csv",
+            mime="text/csv",
+            help="The filtered source/technical columns, retained for analysis and reproducibility.",
+            key="download_technical_data_v8",
+        )
 
     if not filtered.empty:
         st.markdown("#### Selected event briefing")

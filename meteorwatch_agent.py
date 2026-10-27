@@ -271,6 +271,217 @@ def build_agent_explanation(row: Any) -> str:
     return "\n".join(lines)
 
 
+
+def build_structured_review_export(df: pd.DataFrame) -> pd.DataFrame:
+    """Build a human-friendly, one-event-per-row review CSV table.
+
+    This is a curated view for faculty/demo review. The source/technical export
+    remains available separately so no original data columns are lost.
+    """
+    field_labels = {
+        "date": "event date/time",
+        "energy": "reported radiated energy",
+        "impact-e": "estimated impact energy",
+        "alt": "altitude at peak brightness",
+        "vel": "reported scalar velocity",
+        "vx": "velocity component vx",
+        "vy": "velocity component vy",
+        "vz": "velocity component vz",
+        "map_latitude": "peak-brightness latitude",
+        "map_longitude": "peak-brightness longitude",
+    }
+    available_source_fields = [key for key in field_labels if key in df.columns]
+
+    def flag_label(value: Any) -> str:
+        parsed = parse_saved_bool(value)
+        if parsed is None:
+            return "Unknown"
+        return "Yes" if parsed else "No"
+
+    def clean_timestamp(value: Any) -> str:
+        if _is_missing(value):
+            return ""
+        try:
+            timestamp = pd.to_datetime(value, errors="coerce")
+        except (TypeError, ValueError):
+            return str(value)
+        if pd.isna(timestamp):
+            return ""
+        return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+    def clean_number(value: Any) -> Any:
+        if _is_missing(value):
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return str(value)
+        if not math.isfinite(number):
+            return None
+        return number
+
+    records: list[dict[str, Any]] = []
+    for fallback_number, (source_index, row) in enumerate(df.iterrows(), start=1):
+        if isinstance(source_index, (int, np.integer)) and int(source_index) >= 0:
+            source_number = int(source_index) + 1
+        else:
+            source_number = fallback_number
+
+        assessment = assess_event(row)
+        decision = assessment["decision_label"]
+        baseline_flag = assessment["baseline_flag"]
+        forest_flag = assessment["iforest_flag"]
+        ml_assessed = assessment["ml_assessed"]
+
+        if decision == "Flagged by both methods":
+            queue_group, queue_rank = "Both methods flagged", 1
+            next_step = "Review this record first; both detection methods flagged it. This is not proof of danger."
+        elif forest_flag is True and baseline_flag is not True:
+            queue_group, queue_rank = "Isolation Forest flag", 2
+            next_step = "Review the Isolation Forest flag and compare the available measurements."
+        elif baseline_flag is True and ml_assessed is True and forest_flag is False:
+            queue_group, queue_rank = "IQR baseline flag", 3
+            next_step = "Review the energy-based IQR flag and compare it with the model result."
+        elif baseline_flag is True and ml_assessed is not True:
+            queue_group, queue_rank = "Baseline flag; ML unavailable", 4
+            next_step = "Review the baseline flag; the model did not assess this record or its status is unknown."
+        elif decision == "Neither method flagged":
+            queue_group, queue_rank = "Neither method flagged", 6
+            next_step = "No saved detector flag is present; this is not a safety clearance."
+        elif ml_assessed is False or decision == "Detection status incomplete":
+            queue_group, queue_rank = "Coverage / status check", 5
+            next_step = "Check data completeness and saved detection fields before interpreting this record."
+        else:
+            queue_group, queue_rank = "Coverage / status check", 5
+            next_step = "Check incomplete or inconsistent detection fields before interpreting this record."
+
+        missing_fields = [
+            field_labels[key]
+            for key in available_source_fields
+            if _is_missing(_get(row, key))
+        ]
+        # Keep the saved ML inputs separate from general record completeness.
+        missing_ml_fields = list(assessment["missing_ml_fields"])
+
+        if baseline_flag is True:
+            baseline_reason = "The saved IQR energy-only rule flagged this record for review."
+        elif baseline_flag is False:
+            baseline_reason = "The saved IQR rule did not flag this record; this is not a safety clearance."
+        else:
+            baseline_reason = "No usable saved IQR baseline flag is available."
+
+        if ml_assessed is False:
+            forest_reason = "The Isolation Forest did not assess this record; do not interpret this as a negative result."
+        elif ml_assessed is True and forest_flag is True:
+            forest_reason = "The saved Isolation Forest result flagged this record for review."
+        elif ml_assessed is True and forest_flag is False:
+            forest_reason = "The saved Isolation Forest result did not flag this record; this does not prove the event is normal or safe."
+        else:
+            forest_reason = "The saved Isolation Forest result is unavailable or its assessment status is unknown."
+
+        warnings = list(assessment["warnings"])
+        if ("map_latitude" in df.columns and "map_longitude" in df.columns
+                and (_is_missing(_get(row, "map_latitude")) or _is_missing(_get(row, "map_longitude")))):
+            warnings.append("Peak-brightness map coordinates are unavailable or invalid.")
+
+        date_value = _get(row, "date")
+        date_export = clean_timestamp(date_value)
+        energy_value = clean_number(_get(row, "energy"))
+        impact_value = clean_number(_get(row, "impact-e"))
+        altitude_value = clean_number(_get(row, "alt"))
+        velocity_value = clean_number(_get(row, "vel"))
+        speed_value = clean_number(_get(row, "component_speed"))
+        if speed_value is None:
+            vx, vy, vz = (_get(row, key) for key in ("vx", "vy", "vz"))
+            if all(not _is_missing(value) for value in (vx, vy, vz)):
+                try:
+                    speed_value = math.sqrt(float(vx) ** 2 + float(vy) ** 2 + float(vz) ** 2)
+                except (TypeError, ValueError, OverflowError):
+                    speed_value = None
+
+        score = clean_number(_get(row, "iforest_score"))
+        if ml_assessed is False:
+            score_note = "ML marked not assessed; any saved score should be checked for consistency."
+        elif score is None:
+            score_note = "Unavailable"
+        else:
+            score_note = "More negative scores are ranked as more unusual by this fitted model; not a danger score."
+
+        if ml_assessed is False:
+            forest_flag_display = "Not assessed"
+        else:
+            forest_flag_display = flag_label(_get(row, "iforest_flag"))
+
+        records.append({
+            "Source record number": source_number,
+            "METEORWATCH record ID": f"MW-{source_number:04d}",
+            "Event date/time (GMT)": date_export,
+            "Saved review status": "" if _is_missing(_get(row, "review_status")) else str(_get(row, "review_status")),
+            "Agent interpretation from saved flags": decision,
+            "Review queue group": queue_group,
+            "IQR baseline flagged": flag_label(_get(row, "baseline_flag")),
+            "Isolation Forest assessed": flag_label(_get(row, "ml_assessed")),
+            "Isolation Forest flagged": forest_flag_display,
+            "Isolation Forest score": score,
+            "Score interpretation": score_note,
+            "Reported radiated energy (×10¹⁰ J)": energy_value,
+            "Estimated impact energy (kt)": impact_value,
+            "Altitude at peak brightness (km)": altitude_value,
+            "Reported scalar velocity (km/s)": velocity_value,
+            "Speed calculated from vx/vy/vz (km/s)": speed_value,
+            "Peak-brightness latitude (degrees)": clean_number(_get(row, "map_latitude")),
+            "Peak-brightness longitude (degrees)": clean_number(_get(row, "map_longitude")),
+            "Missing measurements or fields": "; ".join(missing_fields),
+            "Missing Isolation Forest inputs": "; ".join(missing_ml_fields),
+            "Data-quality notes": "; ".join(dict.fromkeys(warnings)),
+            "IQR baseline explanation": baseline_reason,
+            "Isolation Forest explanation": forest_reason,
+            "Suggested review action": next_step,
+            "Interpretation boundary": "Historical statistical review only; flags are not confirmed anomalies or danger ratings, and METEORWATCH does not predict future impacts.",
+            "Original saved explanation": "" if _is_missing(_get(row, "explanation")) else str(_get(row, "explanation")),
+            "_queue_rank": queue_rank,
+        })
+
+    columns = [
+        "Source record number",
+        "METEORWATCH record ID",
+        "Event date/time (GMT)",
+        "Saved review status",
+        "Agent interpretation from saved flags",
+        "Review queue group",
+        "IQR baseline flagged",
+        "Isolation Forest assessed",
+        "Isolation Forest flagged",
+        "Isolation Forest score",
+        "Score interpretation",
+        "Reported radiated energy (×10¹⁰ J)",
+        "Estimated impact energy (kt)",
+        "Altitude at peak brightness (km)",
+        "Reported scalar velocity (km/s)",
+        "Speed calculated from vx/vy/vz (km/s)",
+        "Peak-brightness latitude (degrees)",
+        "Peak-brightness longitude (degrees)",
+        "Missing measurements or fields",
+        "Missing Isolation Forest inputs",
+        "Data-quality notes",
+        "IQR baseline explanation",
+        "Isolation Forest explanation",
+        "Suggested review action",
+        "Interpretation boundary",
+        "Original saved explanation",
+        "_queue_rank",
+    ]
+    result = pd.DataFrame(records, columns=columns)
+    if not result.empty:
+        result = result.sort_values(
+            ["_queue_rank", "Reported radiated energy (×10¹⁰ J)", "Event date/time (GMT)"],
+            ascending=[True, False, False],
+            na_position="last",
+            kind="stable",
+        )
+    result = result.drop(columns=["_queue_rank"], errors="ignore").reset_index(drop=True)
+    return result
+
 def run_agent_self_tests() -> pd.DataFrame:
     """Run deterministic logic tests using synthetic examples, not ground truth."""
     cases: list[dict[str, Any]] = []

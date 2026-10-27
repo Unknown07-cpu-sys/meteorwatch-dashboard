@@ -609,8 +609,15 @@ if search_text.strip():
     filtered = filtered[search_mask]
 
 # Tabs give the app a cleaner mission-control-style structure.
-tab_overview, tab_map, tab_explorer, tab_ai, tab_methods = st.tabs(
-    ["Overview", "Event Map", "Event Explorer", "AI Briefing Assistant", "Methods & Limitations"]
+tab_overview, tab_map, tab_explorer, tab_ai, tab_methods, tab_quality = st.tabs(
+    [
+        "Overview",
+        "Event Map",
+        "Event Explorer",
+        "AI Briefing Assistant",
+        "Methods & Limitations",
+        "Data Quality",
+    ]
 )
 
 with tab_overview:
@@ -1026,6 +1033,161 @@ with tab_methods:
         "Missing percent": [round(float(df[col].isna().mean() * 100), 2) for col in quality_cols],
     })
     st.dataframe(quality, hide_index=True, use_container_width=True)
+
+with tab_quality:
+    st.markdown("#### Dataset quality and model coverage")
+    st.write(
+        "This page describes the completeness and structural quality of the "
+        "loaded historical report. It does not certify that the source measurements "
+        "are physically correct. Missing values remain missing; they are never "
+        "treated as zero."
+    )
+
+    # Catalogue and date coverage
+    valid_dates = df["date"].dropna() if "date" in df.columns else pd.Series(dtype="datetime64[ns]")
+    date_start = valid_dates.min() if not valid_dates.empty else pd.NaT
+    date_end = valid_dates.max() if not valid_dates.empty else pd.NaT
+    duplicate_rows = int(df.duplicated().sum())
+    ml_assessed_rows = int(df["ml_assessed"].eq(True).sum()) if "ml_assessed" in df else 0
+    ml_not_assessed_rows = total_records - ml_assessed_rows
+    ml_coverage_pct = (ml_assessed_rows / total_records * 100) if total_records else 0.0
+    coordinate_count_local = int(
+        df[["map_latitude", "map_longitude"]].notna().all(axis=1).sum()
+    ) if {"map_latitude", "map_longitude"}.issubset(df.columns) else 0
+
+    q1, q2, q3, q4 = st.columns(4)
+    q1.metric("Total catalogue rows", f"{total_records:,}")
+    q2.metric("ML assessed", f"{ml_assessed_rows:,}", f"{ml_coverage_pct:.1f}% of rows")
+    q3.metric("ML not assessed", f"{ml_not_assessed_rows:,}")
+    q4.metric("Rows with map coordinates", f"{coordinate_count_local:,}")
+
+    if pd.notna(date_start) and pd.notna(date_end):
+        st.caption(
+            f"Date coverage in this file: {date_start.strftime('%Y-%m-%d')} through "
+            f"{date_end.strftime('%Y-%m-%d')} (reported event times are GMT)."
+        )
+    st.info(
+        f"The saved Isolation Forest result covers {ml_assessed_rows:,} rows. "
+        "Rows marked ‘ML not assessed’ were not cleared by the model; required "
+        "measurements were unavailable or the saved report did not include a result."
+    )
+
+    st.markdown("#### Field completeness")
+    field_labels = {
+        "date": "Event date/time",
+        "energy": "Reported radiated energy (×10¹⁰ J)",
+        "impact-e": "Estimated impact energy (kt)",
+        "lat": "Latitude magnitude",
+        "lon": "Longitude magnitude",
+        "alt": "Altitude (km)",
+        "component_speed": "Speed calculated from vx/vy/vz (km/s)",
+        "vx": "Velocity component vx (km/s)",
+        "vy": "Velocity component vy (km/s)",
+        "vz": "Velocity component vz (km/s)",
+        "map_latitude": "Valid signed map latitude",
+        "map_longitude": "Valid signed map longitude",
+    }
+    available_quality_fields = [col for col in field_labels if col in df.columns]
+    completeness_rows = []
+    for col in available_quality_fields:
+        missing_count = int(df[col].isna().sum())
+        present_count = int(df[col].notna().sum())
+        completeness_rows.append({
+            "Field": field_labels[col],
+            "Available": present_count,
+            "Missing": missing_count,
+            "Missing (%)": round(missing_count / total_records * 100, 2) if total_records else 0.0,
+        })
+    completeness = pd.DataFrame(completeness_rows)
+    if not completeness.empty:
+        left_quality, right_quality = st.columns([1.25, 1])
+        with left_quality:
+            st.dataframe(completeness, hide_index=True, use_container_width=True)
+            st.download_button(
+                "Download field-completeness report",
+                data=completeness.to_csv(index=False).encode("utf-8"),
+                file_name="meteorwatch_field_completeness.csv",
+                mime="text/csv",
+                key="download_field_completeness_v6",
+            )
+        with right_quality:
+            plot_data = completeness.sort_values("Missing (%)", ascending=True)
+            fig_missing = px.bar(
+                plot_data,
+                x="Missing (%)",
+                y="Field",
+                orientation="h",
+                title="Missing values by field",
+                text="Missing (%)",
+                range_x=[0, 100],
+            )
+            fig_missing.update_layout(
+                height=max(360, 30 * len(plot_data)),
+                margin=dict(l=10, r=10, t=55, b=20),
+            )
+            st.plotly_chart(fig_missing, use_container_width=True)
+
+    st.markdown("#### Structural checks")
+    checks = []
+    checks.append({
+        "Check": "Rows with an unparseable/missing date",
+        "Rows affected": int(df["date"].isna().sum()) if "date" in df else total_records,
+        "Interpretation": "These rows cannot be placed reliably on the time axis.",
+    })
+    checks.append({
+        "Check": "Rows with missing or invalid signed map coordinates",
+        "Rows affected": int(df[["map_latitude", "map_longitude"]].isna().any(axis=1).sum())
+            if {"map_latitude", "map_longitude"}.issubset(df.columns) else total_records,
+        "Interpretation": "Locations are omitted from the map; no location is inferred.",
+    })
+    checks.append({
+        "Check": "Rows with missing or non-positive reported energy",
+        "Rows affected": int((df["energy"].isna() | (df["energy"] <= 0)).sum()) if "energy" in df else total_records,
+        "Interpretation": "Review these values before applying log-energy analysis.",
+    })
+    if {"vx", "vy", "vz", "alt", "energy"}.issubset(df.columns):
+        feature_complete = df[["energy", "alt", "vx", "vy", "vz"]].notna().all(axis=1)
+        checks.append({
+            "Check": "Rows missing one or more required Isolation Forest features",
+            "Rows affected": int((~feature_complete).sum()),
+            "Interpretation": "The v2/v3 model experiment required energy, altitude, and all three velocity components.",
+        })
+    checks.append({
+        "Check": "Exact duplicate rows in the loaded report",
+        "Rows affected": duplicate_rows,
+        "Interpretation": "Exact-row comparison only; it does not identify differently formatted versions of the same event.",
+    })
+    checks_df = pd.DataFrame(checks)
+    st.dataframe(checks_df, hide_index=True, use_container_width=True)
+
+    st.markdown("#### Saved detection-status breakdown")
+    if "review_status" in df.columns:
+        status_breakdown = (
+            df["review_status"].fillna("Status unavailable")
+            .value_counts()
+            .rename_axis("Review status")
+            .reset_index(name="Records")
+        )
+        st.dataframe(status_breakdown, hide_index=True, use_container_width=True)
+        st.download_button(
+            "Download review-status breakdown",
+            data=status_breakdown.to_csv(index=False).encode("utf-8"),
+            file_name="meteorwatch_review_status_breakdown.csv",
+            mime="text/csv",
+            key="download_status_breakdown_v6",
+        )
+
+    st.markdown("#### How to interpret this page")
+    st.warning(
+        "Completeness is not measurement accuracy. A complete row can still contain "
+        "a revised or uncertain reported estimate. Missing coordinates do not mean "
+        "an event did not occur. Missing ML results are not negative predictions. "
+        "The 5% Isolation Forest contamination value is a configuration choice, not "
+        "an observed rate of physically anomalous fireballs. This project has no "
+        "independently verified anomaly labels, so the dashboard does not claim "
+        "classification accuracy or a danger score."
+    )
+
 
 st.divider()
 st.caption(

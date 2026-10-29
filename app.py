@@ -12,6 +12,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from meteorwatch_exports import build_review_workbook
+
 from meteorwatch_agent import (
     assess_event,
     audit_saved_statuses,
@@ -648,7 +650,7 @@ with tab_explorer:
         "appear first; this ordering is not a hazard ranking."
     )
     structured_export = build_structured_review_export(filtered)
-    export_left, export_right = st.columns(2)
+    export_left, export_middle, export_right = st.columns(3)
     with export_left:
         st.download_button(
             "Download structured review report (CSV)",
@@ -657,6 +659,16 @@ with tab_explorer:
             mime="text/csv",
             help="One row per event, with readable units, decision explanations, missing-data notes and a suggested review action.",
             key="download_structured_review_v8",
+        )
+    with export_middle:
+        workbook_bytes = build_review_workbook(filtered, df)
+        st.download_button(
+            "Download multi-sheet Excel workbook (XLSX)",
+            data=workbook_bytes,
+            file_name="meteorwatch_review_workbook.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="Six sheets: Start Here, Event Review, Technical Data, Data Quality, Review Status, and Agent Tests.",
+            key="download_review_workbook_v9",
         )
     with export_right:
         st.download_button(

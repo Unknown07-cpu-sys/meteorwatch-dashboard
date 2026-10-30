@@ -12,6 +12,8 @@ from typing import Any
 import pandas as pd
 
 from meteorwatch_agent import build_structured_review_export, run_agent_self_tests
+from meteorwatch_evaluation import build_detector_evaluation_table
+from meteorwatch_sensitivity import build_sensitivity_summary_table
 
 
 QUALITY_FIELDS: dict[str, str] = {
@@ -114,7 +116,8 @@ def build_review_workbook(filtered_df: pd.DataFrame, full_df: pd.DataFrame | Non
     """Create a formatted multi-sheet Excel workbook for the current filtered view.
 
     Sheets: Start Here, Event Review, Technical Data, Data Quality, Review Status,
-    and Agent Tests. `full_df` is used only to report catalogue-wide row count.
+    Detector Evaluation, Sensitivity Study, and Agent Tests. `full_df` supplies the
+    catalogue-wide row count and sensitivity analysis; other data sheets use the filtered view.
     """
     filtered = filtered_df.copy()
     full = full_df if full_df is not None else filtered_df
@@ -124,6 +127,9 @@ def build_review_workbook(filtered_df: pd.DataFrame, full_df: pd.DataFrame | Non
     quality = _build_quality_table(filtered)
     status_summary = _build_status_summary(filtered)
     agent_tests = run_agent_self_tests()
+    detector_evaluation = build_detector_evaluation_table(filtered)
+    # Keep this catalogue-wide so it matches the Agent Test Lab, which evaluates the full report.
+    sensitivity_study = build_sensitivity_summary_table(full)
 
     generated_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     start_here = pd.DataFrame([
@@ -136,6 +142,8 @@ def build_review_workbook(filtered_df: pd.DataFrame, full_df: pd.DataFrame | Non
         {"Item": "Technical Data sheet", "Details": "Filtered source/technical fields retained for analysis. Derived map coordinates are omitted to match the technical CSV export."},
         {"Item": "Data Quality sheet", "Details": "Missing-value counts and percentages for available key fields in the current filtered view."},
         {"Item": "Review Status sheet", "Details": "Count and share of each saved review status in the current filtered view."},
+        {"Item": "Detector Evaluation sheet", "Details": "Coverage and inter-method agreement among comparable saved flags. Agreement is not accuracy; no independently verified anomaly labels are available."},
+        {"Item": "Sensitivity Study sheet", "Details": "Catalogue-wide threshold sensitivity using existing saved Isolation Forest decision scores. It does not refit the model or change stored flags."},
         {"Item": "Agent Tests sheet", "Details": "Synthetic software logic tests. These are not ground-truth event labels or detector-accuracy measurements."},
         {"Item": "Interpretation boundary", "Details": "A flag is a prompt for human review, not proof of danger. An unflagged event is not proven safe. METEORWATCH does not predict future impacts."},
         {"Item": "Location note", "Details": "Reported coordinates correspond to peak-brightness location where available, not necessarily a ground impact site."},
@@ -149,6 +157,8 @@ def build_review_workbook(filtered_df: pd.DataFrame, full_df: pd.DataFrame | Non
         "Technical Data": technical,
         "Data Quality": quality,
         "Review Status": status_summary,
+        "Detector Evaluation": detector_evaluation,
+        "Sensitivity Study": sensitivity_study,
         "Agent Tests": agent_tests,
     }
 

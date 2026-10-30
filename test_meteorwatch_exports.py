@@ -76,7 +76,7 @@ class MeteorwatchWorkbookTests(unittest.TestCase):
         names = [node.attrib["name"] for node in root.findall("x:sheets/x:sheet", ns)]
         self.assertEqual(names, [
             "Start Here", "Event Review", "Technical Data", "Data Quality",
-            "Review Status", "Agent Tests",
+            "Review Status", "Detector Evaluation", "Sensitivity Study", "Agent Tests",
         ])
 
     def test_workbook_includes_review_caveats(self):
@@ -85,6 +85,8 @@ class MeteorwatchWorkbookTests(unittest.TestCase):
             shared_strings = archive.read("xl/sharedStrings.xml").decode("utf-8")
         self.assertIn("not proven safe", shared_strings)
         self.assertIn("Not assessed", shared_strings)
+        self.assertIn("not accuracy", shared_strings.lower())
+        self.assertIn("does not refit", shared_strings.lower())
 
     def test_technical_sheet_excludes_derived_map_coordinates(self):
         # Confirm the technical export convention used in this workbook function.

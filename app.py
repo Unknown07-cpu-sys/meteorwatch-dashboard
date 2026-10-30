@@ -13,6 +13,12 @@ import plotly.express as px
 import streamlit as st
 
 from meteorwatch_exports import build_review_workbook
+from meteorwatch_evaluation import (
+    build_detector_evaluation,
+    build_detector_evaluation_table,
+    build_event_level_comparison,
+)
+from meteorwatch_sensitivity import build_score_threshold_sensitivity
 
 from meteorwatch_agent import (
     assess_event,
@@ -469,24 +475,27 @@ if "baseline_flag" not in df.columns:
 if "iforest_flag" not in df.columns:
     df["iforest_flag"] = pd.Series(pd.NA, index=df.index, dtype="boolean")
 if "ml_assessed" not in df.columns:
-    df["ml_assessed"] = df["iforest_flag"].notna().astype("boolean")
+    # Do not infer assessment from the mere presence of a saved flag.
+    df["ml_assessed"] = pd.Series(pd.NA, index=df.index, dtype="boolean")
 if "explanation" not in df.columns:
     df["explanation"] = "No saved explanation is available for this row."
 
 # Dashboard metrics are derived from loaded data.
 total_records = len(df)
-ml_assessed_count = safe_int(df["ml_assessed"])
-ml_not_assessed_count = total_records - ml_assessed_count
+ml_assessed_count = int(df["ml_assessed"].eq(True).sum())
+ml_not_assessed_count = int(df["ml_assessed"].eq(False).sum())
+ml_assessment_unknown_count = int(df["ml_assessed"].isna().sum())
 baseline_count = safe_int(df["baseline_flag"])
 ml_flag_count = safe_int(df["iforest_flag"])
 coordinate_count = int(df[["map_latitude", "map_longitude"]].notna().all(axis=1).sum())
 
-m1, m2, m3, m4, m5 = st.columns(5)
+m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("Historical records", f"{total_records:,}")
 m2.metric("IQR baseline flags", f"{baseline_count:,}")
-m3.metric("Isolation Forest flags", f"{ml_flag_count:,}")
-m4.metric("ML not assessed", f"{ml_not_assessed_count:,}")
-m5.metric("Mapped records", f"{coordinate_count:,}")
+m3.metric("Saved Isolation Forest flags", f"{ml_flag_count:,}")
+m4.metric("ML assessed", f"{ml_assessed_count:,}")
+m5.metric("ML not assessed", f"{ml_not_assessed_count:,}")
+m6.metric("ML assessment unknown", f"{ml_assessment_unknown_count:,}")
 
 st.caption(f"Data source file: `{source_label}` · Source fields are from NASA/JPL's historical Fireball Data API.")
 
@@ -667,8 +676,8 @@ with tab_explorer:
             data=workbook_bytes,
             file_name="meteorwatch_review_workbook.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="Six sheets: Start Here, Event Review, Technical Data, Data Quality, Review Status, and Agent Tests.",
-            key="download_review_workbook_v9",
+            help="Eight sheets, including detector agreement and the catalogue-wide score-threshold sensitivity study.",
+            key="download_review_workbook_v11",
         )
     with export_right:
         st.download_button(
@@ -990,6 +999,177 @@ with tab_agent:
         "It does not prove the detector finds real physical anomalies or predicts hazards."
     )
 
+    st.markdown("#### Detector coverage and inter-method agreement")
+    st.write(
+        "This section compares the saved IQR and Isolation Forest outputs only where both "
+        "results are available. It reports assessment coverage and how often the methods agree; "
+        "agreement is not accuracy, and neither method is treated as ground truth."
+    )
+    st.info(
+        "This evaluation uses the entire loaded report, independently of sidebar filters. "
+        "The project does not currently have independently verified anomaly labels, so it does "
+        "not report precision, recall, or detector accuracy."
+    )
+
+    detector_eval = build_detector_evaluation(df)
+    evaluation_table = build_detector_evaluation_table(df)
+    comp_1, comp_2, comp_3, comp_4 = st.columns(4)
+    comp_1.metric("Loaded records", f"{detector_eval['total_records']:,}")
+    comp_2.metric(
+        "Baseline results available",
+        f"{detector_eval['baseline_results_available']:,}",
+        f"{detector_eval['baseline_coverage_pct']:.1f}% coverage" if detector_eval["baseline_coverage_pct"] is not None else "Coverage unavailable",
+    )
+    comp_3.metric(
+        "ML explicitly assessed",
+        f"{detector_eval['ml_explicitly_assessed']:,}",
+        f"{detector_eval['ml_assessed_pct']:.1f}% of loaded records" if detector_eval["ml_assessed_pct"] is not None else "Coverage unavailable",
+    )
+    comp_4.metric(
+        "Comparable pairs",
+        f"{detector_eval['comparable_pairs']:,}",
+        f"{detector_eval['comparable_pct_of_loaded_records']:.1f}% of loaded records" if detector_eval["comparable_pct_of_loaded_records"] is not None else "No comparable records",
+    )
+
+    agree_1, agree_2, agree_3 = st.columns(3)
+    agreement_value = detector_eval["observed_agreement_pct"]
+    kappa_value = detector_eval["cohen_kappa"]
+    jaccard_value = detector_eval["jaccard_flag_overlap_pct"]
+    agree_1.metric("Observed agreement", "N/A" if agreement_value is None else f"{agreement_value:.1f}%")
+    agree_2.metric("Cohen's kappa", "N/A" if kappa_value is None else f"{kappa_value:.3f}")
+    agree_3.metric("Flagged-set overlap (Jaccard)", "N/A" if jaccard_value is None else f"{jaccard_value:.1f}%")
+
+    outcome_counts = detector_eval["outcome_counts"]
+    outcome_table = pd.DataFrame([
+        {"Pairwise outcome": name, "Comparable records": int(count)}
+        for name, count in outcome_counts.items()
+    ])
+    st.markdown("**Outcomes among comparable records**")
+    st.dataframe(outcome_table, use_container_width=True, hide_index=True)
+    if detector_eval["comparable_pairs"]:
+        outcome_fig = px.bar(
+            outcome_table,
+            x="Pairwise outcome",
+            y="Comparable records",
+            title="Saved detector outcomes where both methods can be compared",
+            color="Pairwise outcome",
+        )
+        outcome_fig.update_layout(
+            showlegend=False,
+            xaxis_tickangle=-20,
+            margin=dict(l=10, r=10, t=55, b=80),
+        )
+        st.plotly_chart(outcome_fig, use_container_width=True)
+    else:
+        st.warning("No records have both known detector results and an explicit ML-assessed status, so agreement statistics are not defined.")
+
+    with st.expander("View coverage, agreement definitions, and consistency counters"):
+        st.dataframe(evaluation_table, use_container_width=True, hide_index=True)
+        st.caption(
+            "Observed agreement is the fraction of comparable records where the methods returned the same flag. "
+            "Cohen's kappa adjusts agreement for the observed marginal rates. Jaccard overlap compares the sets "
+            "flagged by either method. These descriptive statistics do not identify which method is correct."
+        )
+
+    export_eval_col, export_pair_col = st.columns(2)
+    with export_eval_col:
+        st.download_button(
+            "Download detector evaluation summary (CSV)",
+            data=evaluation_table.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+            file_name="meteorwatch_detector_evaluation_summary.csv",
+            mime="text/csv",
+            key="download_detector_eval_summary_v10",
+        )
+    with export_pair_col:
+        pairwise_export = build_event_level_comparison(df)
+        st.download_button(
+            "Download event-level detector comparison (CSV)",
+            data=pairwise_export.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+            file_name="meteorwatch_event_detector_comparison.csv",
+            mime="text/csv",
+            help="Includes comparable outcomes, unassessed records, and saved-field inconsistencies.",
+            key="download_detector_pairwise_v10",
+        )
+
+    st.markdown("#### Isolation Forest score-threshold sensitivity")
+    st.write(
+        "This study checks how the selected-record count changes when different "
+        "contamination-style percentile cutoffs are applied to the saved Isolation Forest "
+        "decision scores. Lower scores are treated as more unusual."
+    )
+    st.info(
+        "This is a threshold-only sensitivity study. It reuses the saved scores and does not "
+        "refit Isolation Forest, change the stored detector flags, alter the live review queue, "
+        "or establish which records are true anomalies. Results use the full loaded report, "
+        "not the sidebar-filtered view."
+    )
+    sensitivity_result = build_score_threshold_sensitivity(df)
+    sensitivity_summary = sensitivity_result["summary"]
+    sensitivity_detail = sensitivity_result["event_detail"]
+    sensitivity_meta = sensitivity_result["metadata"]
+
+    sens_1, sens_2, sens_3, sens_4 = st.columns(4)
+    sens_1.metric("Scored records included", f"{sensitivity_meta['eligible_scored_records']:,}")
+    sens_2.metric("Explicitly not assessed", f"{sensitivity_meta['not_assessed_records']:,}")
+    sens_3.metric("Assessment status unknown", f"{sensitivity_meta['assessment_status_unknown_records']:,}")
+    sens_4.metric("Assessed but score unavailable", f"{sensitivity_meta['assessed_records_without_finite_score']:,}")
+
+    if sensitivity_summary.empty:
+        st.warning(
+            "The sensitivity study is unavailable because no records have both an explicit "
+            "ML-assessed status and a finite saved Isolation Forest score."
+        )
+    else:
+        reference_disagreements = sensitivity_meta["reference_saved_flag_disagreements"]
+        if reference_disagreements is not None:
+            st.caption(
+                f"At the 5% reference setting, {sensitivity_meta['reference_records_flagged']:,} "
+                f"records are below the score cutoff. Among {sensitivity_meta['saved_flags_comparable_at_reference']:,} "
+                f"records with saved flags, {reference_disagreements:,} differ from the score-derived result. "
+                "This is a consistency check; inspect differences rather than assuming either value is correct."
+            )
+        sens_fig = px.line(
+            sensitivity_summary,
+            x="Score threshold setting (%)",
+            y="Records flagged",
+            markers=True,
+            title="How the selected-record count changes with the score threshold",
+            labels={
+                "Score threshold setting (%)": "Contamination-style score threshold (%)",
+                "Records flagged": "Records selected for review",
+            },
+        )
+        sens_fig.update_layout(margin=dict(l=10, r=10, t=55, b=35))
+        st.plotly_chart(sens_fig, use_container_width=True)
+        st.dataframe(sensitivity_summary, use_container_width=True, hide_index=True)
+
+        sens_download_a, sens_download_b = st.columns(2)
+        with sens_download_a:
+            st.download_button(
+                "Download threshold sensitivity summary (CSV)",
+                data=sensitivity_summary.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                file_name="meteorwatch_score_threshold_sensitivity_summary.csv",
+                mime="text/csv",
+                key="download_score_threshold_sensitivity_v11",
+            )
+        with sens_download_b:
+            st.download_button(
+                "Download event-level threshold comparison (CSV)",
+                data=sensitivity_detail.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                file_name="meteorwatch_score_threshold_sensitivity_events.csv",
+                mime="text/csv",
+                help="Includes all rows and labels records excluded because they were not assessed, have unknown assessment status, or lack a saved score.",
+                key="download_score_threshold_events_v11",
+            )
+        with st.expander("Read the sensitivity method and limitations"):
+            st.markdown(
+                "- The analysis uses existing `iforest_score` values; smaller (more negative) scores are treated as more unusual.\n"
+                "- It calculates score cutoffs at 1%, 2.5%, 5%, 7.5%, 10%, and 15%. The 5% setting is the reference for overlap calculations.\n"
+                "- A record is selected only when its score is strictly below the percentile cutoff. Tied scores at the cutoff may make the actual selected percentage lower than the setting.\n"
+                "- Only rows with `ml_assessed = True` and a finite saved score are included. Missing or unknown states remain excluded and visible in the event-level export.\n"
+                "- This does not test different training samples, features, random seeds, or refit the model. It is not a measure of accuracy, precision, recall, physical danger, or future impact risk."
+            )
+
     st.markdown("#### Audit saved review statuses")
     st.write(
         "This optional audit reconstructs an event's interpretation from the saved "
@@ -1097,17 +1277,19 @@ with tab_quality:
     date_end = valid_dates.max() if not valid_dates.empty else pd.NaT
     duplicate_rows = int(df.duplicated().sum())
     ml_assessed_rows = int(df["ml_assessed"].eq(True).sum()) if "ml_assessed" in df else 0
-    ml_not_assessed_rows = total_records - ml_assessed_rows
+    ml_not_assessed_rows = int(df["ml_assessed"].eq(False).sum()) if "ml_assessed" in df else 0
+    ml_assessment_unknown_rows = int(df["ml_assessed"].isna().sum()) if "ml_assessed" in df else total_records
     ml_coverage_pct = (ml_assessed_rows / total_records * 100) if total_records else 0.0
     coordinate_count_local = int(
         df[["map_latitude", "map_longitude"]].notna().all(axis=1).sum()
     ) if {"map_latitude", "map_longitude"}.issubset(df.columns) else 0
 
-    q1, q2, q3, q4 = st.columns(4)
+    q1, q2, q3, q4, q5 = st.columns(5)
     q1.metric("Total catalogue rows", f"{total_records:,}")
     q2.metric("ML assessed", f"{ml_assessed_rows:,}", f"{ml_coverage_pct:.1f}% of rows")
     q3.metric("ML not assessed", f"{ml_not_assessed_rows:,}")
-    q4.metric("Rows with map coordinates", f"{coordinate_count_local:,}")
+    q4.metric("Assessment status unknown", f"{ml_assessment_unknown_rows:,}")
+    q5.metric("Rows with map coordinates", f"{coordinate_count_local:,}")
 
     if pd.notna(date_start) and pd.notna(date_end):
         st.caption(
@@ -1115,9 +1297,9 @@ with tab_quality:
             f"{date_end.strftime('%Y-%m-%d')} (reported event times are GMT)."
         )
     st.info(
-        f"The saved Isolation Forest result covers {ml_assessed_rows:,} rows. "
-        "Rows marked ‘ML not assessed’ were not cleared by the model; required "
-        "measurements were unavailable or the saved report did not include a result."
+        f"The report explicitly marks {ml_assessed_rows:,} rows as assessed, "
+        f"{ml_not_assessed_rows:,} as not assessed, and {ml_assessment_unknown_rows:,} with unknown assessment status. "
+        "Unknown status is reported separately rather than silently counted as either assessed or not assessed."
     )
 
     st.markdown("#### Field completeness")

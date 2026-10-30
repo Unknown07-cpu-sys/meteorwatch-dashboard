@@ -53,6 +53,26 @@ class MeteorwatchAgentTests(unittest.TestCase):
         self.assertIsNone(result["iforest_flag"])
         self.assertEqual(result["decision_label"], "ML not assessed; baseline did not flag")
 
+    def test_unknown_assessment_with_saved_flag_is_not_inferred_as_assessed(self):
+        result = assess_event({
+            **self.complete,
+            "baseline_flag": False,
+            "iforest_flag": True,
+            "ml_assessed": None,
+        })
+        self.assertIsNone(result["ml_assessed"])
+        self.assertIn("unknown", result["decision_label"].lower())
+        self.assertTrue(any("assessment status is unknown" in reason.lower() for reason in result["reasons"]))
+
+    def test_legacy_record_without_assessment_column_uses_limited_fallback(self):
+        legacy = {
+            **self.complete,
+            "baseline_flag": False,
+            "iforest_flag": True,
+        }
+        result = assess_event(legacy)
+        self.assertTrue(result["ml_assessed"])
+
     def test_missing_energy_is_not_zero_filled(self):
         explanation = build_agent_explanation({
             **self.complete,

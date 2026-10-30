@@ -74,11 +74,15 @@ def assess_event(row: Any) -> dict[str, Any]:
     """Interpret saved rule/model flags without treating missing as negative."""
     baseline = parse_saved_bool(_get(row, "baseline_flag"))
     forest_flag = parse_saved_bool(_get(row, "iforest_flag"))
-    explicit_assessed = parse_saved_bool(_get(row, "ml_assessed"))
+    missing_sentinel = object()
+    raw_assessment = _get(row, "ml_assessed", missing_sentinel)
+    explicit_field_present = raw_assessment is not missing_sentinel
+    explicit_assessed = parse_saved_bool(raw_assessment) if explicit_field_present else None
 
-    # Only infer model coverage from the flag if the report has no explicit value.
-    # An explicit False is authoritative; a missing flag is not a negative result.
-    if explicit_assessed is None:
+    # A legacy report with no ml_assessed field at all may use the forest flag as
+    # a weak coverage proxy. If the field exists but is blank/unknown, preserve
+    # that uncertainty instead of inferring assessment from the flag.
+    if not explicit_field_present:
         ml_assessed = forest_flag is not None
     else:
         ml_assessed = explicit_assessed
@@ -141,6 +145,10 @@ def assess_event(row: Any) -> dict[str, Any]:
         reasons.append(
             "**Isolation Forest:** this record is marked as not assessed. A missing model result must not be interpreted as a negative result."
         )
+    elif ml_assessed is None and forest_flag is not None:
+        reasons.append(
+            "**Isolation Forest:** a flag value is saved, but the assessment status is unknown. Do not infer model coverage from this incomplete combination."
+        )
     else:
         reasons.append(
             "**Isolation Forest:** the saved result does not establish whether this record was flagged."
@@ -149,6 +157,10 @@ def assess_event(row: Any) -> dict[str, Any]:
     if ml_assessed is False and forest_flag is not None:
         reasons.append(
             "**Consistency note:** the report contains an Isolation Forest flag value even though `ml_assessed` is false. Check the exported report and model pipeline."
+        )
+    elif ml_assessed is None and forest_flag is not None:
+        reasons.append(
+            "**Coverage note:** an Isolation Forest flag is stored, but `ml_assessed` is missing or unrecognised. Confirm the source pipeline before counting this row as assessed."
         )
 
     date_value = _get(row, "date")

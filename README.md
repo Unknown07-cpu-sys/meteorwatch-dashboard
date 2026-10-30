@@ -12,12 +12,18 @@ METEORWATCH is a student-built educational prototype that organises and analyses
 - **Energy-based baseline:** Uses a documented statistical IQR rule applied to log-transformed reported energy to identify records for review.
 - **Experimental anomaly detector:** Uses the saved Isolation Forest results where the required inputs were available. Its flags and scores are not danger ratings.
 - **Transparent agent explanations:** Interprets the saved baseline and model outputs, states the basis for the current review label, surfaces missing fields, and distinguishes `Not assessed` from `Not flagged`.
-- **Agent Test Lab:** Runs deterministic synthetic tests for the agent's software logic. Passing tests show that specified rules behaved as expected; they do not prove scientific accuracy.
+- **Detector lab (Logic tests):** Runs deterministic synthetic tests for the agent's software logic. Passing tests show that specified rules behaved as expected; they do not prove scientific accuracy.
 - **Detector evaluation:** Summarises baseline/ML coverage and agreement between saved detector flags on comparable records. Observed agreement, Cohen's kappa, and Jaccard overlap are descriptive comparisons—not accuracy measures.
 - **Score-threshold sensitivity study:** Reuses saved Isolation Forest decision scores to show how selected-record counts change under several contamination-style percentile cutoffs. It does not refit the detector or change saved flags.
 - **Data Quality panel:** Shows field completeness, missing values, model coverage, and selected structural checks.
 - **Exports:** Provides a human-oriented structured CSV, a technical CSV, event-level detector-comparison and score-threshold sensitivity CSVs, summary CSVs, and a multi-sheet Excel workbook. The workbook includes a catalogue-wide sensitivity summary.
 - **Optional event briefing:** Can generate a rule-based briefing without an external AI API, or use a configured supported provider. Such a briefing does not retrain the detectors or independently verify source measurements.
+
+## How the dashboard is organised
+
+A sidebar holds the filters that apply everywhere. The main page has six tabs: **Sky** (every record by date and energy), **Map**, **Records** (select a row to open its record sheet), **Briefing**, **Detector lab** (agreement, threshold sensitivity, status audit, logic tests) and **Data and method**.
+
+Colour is reserved for detector status. A **hollow** mark means the Isolation Forest did not assess the record; it is deliberately never drawn like “not flagged”.
 
 ## How the agent works
 
@@ -58,7 +64,9 @@ Keep `meteorwatch_full_review_report.csv` beside `app.py`, or upload the report 
 
 | File | Purpose |
 |---|---|
-| `app.py` | Streamlit dashboard and user interface |
+| `app.py` | Streamlit dashboard: data loading, filters, tabs and page flow |
+| `meteorwatch_ui.py` | Visual design system: theme CSS, HTML components (record sheet, status key), Plotly charts |
+| `.streamlit/config.toml` | Base dark theme colours for Streamlit |
 | `meteorwatch_agent.py` | Transparent decision interpretation, explanations, structured review export, status audit, and synthetic self-tests |
 | `meteorwatch_exports.py` | Multi-sheet Excel workbook builder, including detector evaluation summary |
 | `meteorwatch_evaluation.py` | Conservative coverage, inter-method agreement and event-level comparison helpers |
@@ -67,6 +75,7 @@ Keep `meteorwatch_full_review_report.csv` beside `app.py`, or upload the report 
 | `test_meteorwatch_evaluation.py` | Tests for evaluation coverage, agreement and unknown/unassessed results |
 | `test_meteorwatch_sensitivity.py` | Tests for score-threshold sensitivity and explicit exclusion states |
 | `test_meteorwatch_exports.py` | Automated workbook export checks |
+| `test_meteorwatch_ui.py` | Checks for the design rules (for example, “not assessed” never looks like “not flagged”) and HTML escaping |
 | `requirements.txt` | Python dependencies |
 | `CHANGELOG.md` | Version-by-version project history |
 

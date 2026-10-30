@@ -2,6 +2,27 @@
 
 Notable project changes are recorded here. This file tracks releases; `README.md` remains the stable overview of the project's purpose, transparent agent design, setup, and scientific limits.
 
+## v11 — Isolation Forest score-threshold sensitivity study
+
+- Added a sensitivity analysis using the already-saved Isolation Forest decision scores at 1%, 2.5%, 5%, 7.5%, 10%, and 15% contamination-style percentile cutoffs.
+- Added selected-record counts, actual selected shares, overlap against the 5% reference, and counts of records added/removed relative to that reference.
+- Added an event-level comparison CSV that keeps `Not assessed`, unknown assessment status, and unavailable scores explicit.
+- Added a consistency check comparing the score-derived 5% reference with saved Isolation Forest flags.
+- Added a `Sensitivity Study` sheet to the Excel workbook. This sheet reflects the full loaded catalogue, matching the Agent Test Lab; other workbook event sheets use the current filtered view.
+- The study reuses saved scores only: it does not refit Isolation Forest, change saved flags, or claim detector accuracy. Ties at the score cutoff are handled with a strict less-than comparison.
+- Added automated tests for eligible-row selection, missing states, tied scores, invalid settings, and unavailable studies.
+
+## v10 — Detector coverage and agreement evaluation
+
+- Added a Detector Evaluation section to the Agent Test Lab with baseline/ML coverage, comparable-record counts, four pairwise outcomes, observed agreement, Cohen's kappa, and Jaccard overlap of flagged records.
+- Kept all agreement statistics explicitly separate from accuracy; the project does not have independently verified anomaly labels.
+- Added event-level detector-comparison and summary CSV downloads, including visible saved-field inconsistencies and explicit non-comparable states.
+- Preserved an unknown `ml_assessed` value as unknown when the field exists but is blank; a legacy fallback is used only when the field is absent entirely.
+- Updated overview and Data Quality counters so explicitly `Not assessed` is separated from unknown assessment status.
+- Added a `Detector Evaluation` sheet to the multi-sheet Excel workbook.
+- Added `meteorwatch_evaluation.py` and automated tests for paired outcomes, missing assessment states, undefined metrics, and export labels.
+- Updated the README's permanent agent architecture description; version-specific changes remain recorded here.
+
 ## v9 — Multi-sheet Excel reporting and documentation structure
 
 - Added a formatted `.xlsx` workbook download in Event Explorer.

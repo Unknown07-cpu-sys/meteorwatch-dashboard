@@ -2,6 +2,20 @@
 
 Notable project changes are recorded here. This file tracks releases; `README.md` remains the stable overview of the project's purpose, transparent agent design, setup, and scientific limits.
 
+## v12 — Interface redesign
+
+- New visual design. A twilight palette with one rule: colour is reserved for detector status (white-hot gold = both methods, ember = IQR baseline, ultraviolet = Isolation Forest, slate = not flagged). Hollow marks mean the Isolation Forest did not assess the record, so “not assessed” can no longer be mistaken for “not flagged”.
+- New layout. A masthead and status key replace the six metric tiles; the status key counts follow the sidebar filters. A coverage bar shows how much of the catalogue the Isolation Forest could assess.
+- Seven tabs became six: **Sky**, **Map**, **Records**, **Briefing**, **Detector lab**, **Data and method**. The Detector lab and Data and method tabs use sub-tabs instead of one long scroll.
+- Records: click a row to open a record sheet (measurements with units, saved detector results, a globe centred on the reported location) and the rule-generated briefing. The Briefing tab opens the same record.
+- Filters: one set of filters in the sidebar, plus a **Reset filters** button. The duplicate per-tab pickers were removed; each tab keeps an **Order by** control. Sidebar search now covers dates, energy values, status, explanations and coordinates (it previously covered dates and explanations).
+- Charts: shared dark Plotly theme, a time-by-energy hero chart with the highest-energy record labelled, quarter-decade energy bins on the logarithmic scale, marker size by energy on the map, status-coloured outcome bars.
+- Faster interaction: workbook, structured export, detector evaluation, sensitivity study and self-tests are cached, so selecting a row no longer rebuilds them.
+- Streamlit compatibility: uses `width="stretch"` on current Streamlit and `use_container_width=True` on older releases; row selection needs Streamlit 1.35 or later and falls back to a dropdown otherwise.
+- Removed because another view already covers them: the “Review status distribution” bar chart (the status key shows the same counts), the preview table on the old Overview tab (Records has the full table), and the “Dataset quality snapshot” table (Field completeness covers the same fields).
+- Unchanged: all analysis, agent, evaluation, sensitivity and export code, every download, and every scientific limitation statement.
+- Added `meteorwatch_ui.py`, `.streamlit/config.toml` and `test_meteorwatch_ui.py`.
+
 ## v11 — Isolation Forest score-threshold sensitivity study
 
 - Added a sensitivity analysis using the already-saved Isolation Forest decision scores at 1%, 2.5%, 5%, 7.5%, 10%, and 15% contamination-style percentile cutoffs.

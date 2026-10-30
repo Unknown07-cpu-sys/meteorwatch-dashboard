@@ -13,8 +13,10 @@ METEORWATCH is a student-built educational prototype that organises and analyses
 - **Experimental anomaly detector:** Uses the saved Isolation Forest results where the required inputs were available. Its flags and scores are not danger ratings.
 - **Transparent agent explanations:** Interprets the saved baseline and model outputs, states the basis for the current review label, surfaces missing fields, and distinguishes `Not assessed` from `Not flagged`.
 - **Agent Test Lab:** Runs deterministic synthetic tests for the agent's software logic. Passing tests show that specified rules behaved as expected; they do not prove scientific accuracy.
+- **Detector evaluation:** Summarises baseline/ML coverage and agreement between saved detector flags on comparable records. Observed agreement, Cohen's kappa, and Jaccard overlap are descriptive comparisons—not accuracy measures.
+- **Score-threshold sensitivity study:** Reuses saved Isolation Forest decision scores to show how selected-record counts change under several contamination-style percentile cutoffs. It does not refit the detector or change saved flags.
 - **Data Quality panel:** Shows field completeness, missing values, model coverage, and selected structural checks.
-- **Exports:** Provides a human-oriented structured CSV, a technical CSV, and a multi-sheet Excel workbook for the current filtered view.
+- **Exports:** Provides a human-oriented structured CSV, a technical CSV, event-level detector-comparison and score-threshold sensitivity CSVs, summary CSVs, and a multi-sheet Excel workbook. The workbook includes a catalogue-wide sensitivity summary.
 - **Optional event briefing:** Can generate a rule-based briefing without an external AI API, or use a configured supported provider. Such a briefing does not retrain the detectors or independently verify source measurements.
 
 ## How the agent works
@@ -27,7 +29,7 @@ METEORWATCH's transparent agent is a **decision-support and explanation layer** 
 4. **Organise review:** Place records into a review workflow. Queue order is for investigation, not a physical-risk ranking.
 5. **Test:** Use documented synthetic cases to verify that missing model results are not misread as negative results and that scientific caution remains visible.
 
-The agent does not independently recalculate all detector outputs from raw NASA records. It explains the saved outputs in the loaded report. Where an output or assessment status is missing or inconsistent, the app should surface that uncertainty rather than silently treating it as `False`.
+The agent does not independently recalculate all detector outputs from raw NASA records. It explains the saved outputs in the loaded report. The sensitivity study reuses saved Isolation Forest decision scores to compare threshold settings; it does not refit the model or alter saved classifications. Where an output or assessment status is missing or inconsistent, the app should surface that uncertainty rather than silently treating it as `False`. If `ml_assessed` exists but is blank or unrecognised, the agent preserves it as unknown; only legacy files that lack the field entirely use the saved Isolation Forest flag as a limited fallback indicator.
 
 ## Data source and interpretation
 
@@ -58,8 +60,12 @@ Keep `meteorwatch_full_review_report.csv` beside `app.py`, or upload the report 
 |---|---|
 | `app.py` | Streamlit dashboard and user interface |
 | `meteorwatch_agent.py` | Transparent decision interpretation, explanations, structured review export, status audit, and synthetic self-tests |
-| `meteorwatch_exports.py` | Multi-sheet Excel workbook builder |
+| `meteorwatch_exports.py` | Multi-sheet Excel workbook builder, including detector evaluation summary |
+| `meteorwatch_evaluation.py` | Conservative coverage, inter-method agreement and event-level comparison helpers |
+| `meteorwatch_sensitivity.py` | Score-threshold sensitivity summaries and event-level comparison exports |
 | `test_meteorwatch_agent.py` | Automated tests for agent decisions, explanations and structured CSV exports |
+| `test_meteorwatch_evaluation.py` | Tests for evaluation coverage, agreement and unknown/unassessed results |
+| `test_meteorwatch_sensitivity.py` | Tests for score-threshold sensitivity and explicit exclusion states |
 | `test_meteorwatch_exports.py` | Automated workbook export checks |
 | `requirements.txt` | Python dependencies |
 | `CHANGELOG.md` | Version-by-version project history |

@@ -11,6 +11,7 @@ import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from meteorwatch_exports import build_review_workbook
 from meteorwatch_evaluation import (
@@ -41,7 +42,7 @@ st.set_page_config(
     page_title=f"{APP_TITLE} | Historical fireball review desk",
     page_icon="☄️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 st.markdown(ui.theme_css(), unsafe_allow_html=True)
 
@@ -644,6 +645,9 @@ inview_slot.markdown(ui.inview_html(len(filtered), total_records), unsafe_allow_
 # ---------------------------------------------------------------------------
 
 say(ui.masthead_html(source_label, total_records, min_date, max_date))
+say(ui.chapter_nav_html())
+components.html(ui.sound_console_html(), height=92, scrolling=False)
+say(ui.signal_strip_html(total_records, len(filtered), baseline_count, ml_flag_count, coordinate_count))
 
 view_counts = filtered["review_status"].astype(str).value_counts()
 say(

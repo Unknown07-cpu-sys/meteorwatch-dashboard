@@ -1,5 +1,15 @@
 # Changelog
 
+## v14 — Optional Google sign-in and team role foundation
+
+- Kept the METEORWATCH dashboard public; visitors do not need to sign in or create an account.
+- Added an optional Google OpenID Connect sign-in panel in the sidebar using Streamlit's native `st.login()` and `st.logout()` flow.
+- Added a private email allowlist for `team_member` and `admin` roles, with verified-email checks; administrators inherit team-member access.
+- Added server-side role-resolution helpers and unit tests. No restricted team/admin tools are active yet; this release establishes the access-control foundation for future features.
+- Added a secrets template and deployment instructions. OAuth credentials, cookie secrets, and allowlists must be configured through Streamlit secrets, never committed to GitHub.
+- Updated the minimum Streamlit version and added Authlib for the documented Google OIDC setup.
+
+
 ## Post-v13 maintenance — chart readability, endpoint hardening, and filter completeness
 
 - Increased Plotly chart margins and enabled automatic axis margins so numerical and category tick labels have room to render, including in narrow dashboard columns.

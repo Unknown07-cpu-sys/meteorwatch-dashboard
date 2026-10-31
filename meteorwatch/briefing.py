@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlsplit
 from typing import Any
 
 import numpy as np
@@ -123,8 +124,28 @@ def make_ai_briefing(
         # This path supports OpenAI-compatible chat-completions APIs, not every
         # arbitrary API. The user picks the provider endpoint and model.
         endpoint = base_url.strip().rstrip("/")
-        if not endpoint.startswith("https://"):
-            raise ValueError("For security, the API base URL must begin with https://")
+        parsed = urlsplit(endpoint)
+        allowed_hosts = {
+            "openrouter.ai",
+            "api.groq.com",
+            "api.deepseek.com",
+            "api.mistral.ai",
+            "api.together.xyz",
+            "api.cerebras.ai",
+        }
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname not in allowed_hosts
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.port not in (None, 443)
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "Use HTTPS with a supported provider host: openrouter.ai, api.groq.com, "
+                "api.deepseek.com, api.mistral.ai, api.together.xyz, or api.cerebras.ai."
+            )
         if not endpoint.endswith("/chat/completions"):
             endpoint += "/chat/completions"
 
@@ -155,7 +176,10 @@ def make_ai_briefing(
                 "max_tokens": 900,
             },
             timeout=60,
+            allow_redirects=False,
         )
+        if 300 <= response.status_code < 400:
+            raise RuntimeError("The AI provider redirected the request; redirects are blocked for security.")
         response.raise_for_status()
         payload = response.json()
         try:

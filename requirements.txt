@@ -1,7 +1,9 @@
-streamlit>=1.39
+streamlit>=1.42
 pandas
 numpy
 plotly
 requests
 google-genai
 XlsxWriter
+
+Authlib>=1.3.2

@@ -2,6 +2,18 @@
 
 Notable project changes are recorded here. This file tracks releases; `README.md` remains the stable overview of the project's purpose, transparent agent design, setup, and scientific limits.
 
+## v13 — Scroll story and project reorganisation
+
+- The app is now one scrolling story instead of tabs. It opens on a sky built from the catalogue itself: each star is one record, placed by date and log energy and coloured by review status. Six chapters follow (Sky, Map, Two ways to look closer, Look at a single fireball, Briefing, Check the checks), then a closing statement.
+- Scroll motion, with no JavaScript: a hero that fades as you leave it, counters that count up, a statement whose words brighten as they scroll in, charts and cards that rise into view, a pinned title beside three scrolling steps, and falling meteors. Scroll-driven effects run in Chrome, Edge and Safari 26 or later; other browsers show the same content without them. All motion is off under reduced-motion settings.
+- Map chapter: a flat map or a globe you can turn.
+- The sidebar filters start collapsed and are described in the chapters they affect.
+- Detector lab tabs, data quality and method and limits now sit together in the last chapter.
+- Reorganised the files: analysis code moved into the `meteorwatch/` package (`agent`, `evaluation`, `sensitivity`, `exports`), the data loader and AI briefing code moved out of `app.py` (`data`, `briefing`, `records`), the interface moved into `meteorwatch/ui/`, tests moved into `tests/`, and the CSV moved into `data/`. `app.py` stays at the project root, so deployment settings do not change. The app still finds the CSV beside `app.py`.
+- Removed the per-release deployment notes (`DEPLOY_V9.md`, `DEPLOY_V11.md`, `DEPLOY_V12.md`) in favour of one `docs/DEPLOYMENT.md`.
+- `build_ai_prompt` no longer reads a global DataFrame; the catalogue counts are passed in.
+- Unchanged: all analysis, agent, evaluation, sensitivity and export logic, every download, and every scientific limitation statement.
+
 ## v12 — Interface redesign
 
 - New visual design. A twilight palette with one rule: colour is reserved for detector status (white-hot gold = both methods, ember = IQR baseline, ultraviolet = Isolation Forest, slate = not flagged). Hollow marks mean the Isolation Forest did not assess the record, so “not assessed” can no longer be mistaken for “not flagged”.

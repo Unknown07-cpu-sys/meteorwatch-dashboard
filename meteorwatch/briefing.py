@@ -132,6 +132,10 @@ def make_ai_briefing(
             "api.mistral.ai",
             "api.together.xyz",
             "api.cerebras.ai",
+            "api.openai.com",
+            "api.x.ai",
+            "api.perplexity.ai",
+            "api.fireworks.ai",
         }
         if (
             parsed.scheme != "https"
@@ -144,7 +148,8 @@ def make_ai_briefing(
         ):
             raise ValueError(
                 "Use HTTPS with a supported provider host: openrouter.ai, api.groq.com, "
-                "api.deepseek.com, api.mistral.ai, api.together.xyz, or api.cerebras.ai."
+                "api.deepseek.com, api.mistral.ai, api.together.xyz, api.cerebras.ai, " 
+                "api.openai.com, api.x.ai, api.perplexity.ai, or api.fireworks.ai."
             )
         if not endpoint.endswith("/chat/completions"):
             endpoint += "/chat/completions"

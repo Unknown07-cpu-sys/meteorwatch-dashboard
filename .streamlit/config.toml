@@ -1,5 +1,5 @@
 # METEORWATCH theme. Streamlit reads this file from the folder you run `streamlit run app.py` in.
-# The richer styling (fonts, status colours, record sheet) lives in meteorwatch_ui.py.
+# The richer styling (fonts, status colours, record sheet, and scroll story) lives in meteorwatch/ui/theme.py.
 [theme]
 base = "dark"
 primaryColor = "#9DB0FF"

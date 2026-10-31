@@ -10,7 +10,6 @@ import pandas as pd
 import streamlit as st
 
 from meteorwatch import ui
-from meteorwatch.access import get_access_context, read_auth_settings, role_allows
 from meteorwatch.agent import (
     assess_event,
     audit_saved_statuses,
@@ -144,39 +143,6 @@ def table_column_config() -> dict[str, Any]:
 default_file = next((p for p in DATA_CANDIDATES if p.exists()), None)
 
 with st.sidebar:
-    # Optional Google sign-in. Public exploration remains available to everyone.
-    auth_settings = read_auth_settings(st.secrets)
-    access_context = get_access_context(st.user, auth_settings)
-
-    with st.expander("Team access", expanded=False):
-        if not auth_settings["auth_configured"]:
-            st.caption("METEORWATCH remains public. Google team sign-in has not been configured yet.")
-            st.caption("Administrators can follow the Google OIDC setup in docs/DEPLOYMENT.md.")
-        elif not access_context["is_logged_in"]:
-            st.caption("Explore the public dashboard without signing in. Team members can sign in for role verification.")
-            st.button(
-                "Sign in with Google",
-                on_click=st.login,
-                key="meteorwatch_google_login",
-                use_container_width=True,
-            )
-        else:
-            st.write(f"Signed in as {access_context['email']}")
-            if role_allows(access_context, "admin"):
-                st.success("Administrator access verified")
-                st.caption("Admin-only tools can be added here in a future release.")
-            elif role_allows(access_context, "team_member"):
-                st.success("Team-member access verified")
-                st.caption("Team-only tools can be added here in a future release.")
-            else:
-                st.warning("This Google account is not on the approved team list. Public access remains available.")
-            st.button(
-                "Sign out",
-                on_click=st.logout,
-                key="meteorwatch_google_logout",
-                use_container_width=True,
-            )
-
     with st.expander("Report file", expanded=default_file is None):
         uploaded_file = st.file_uploader(
             "Upload the full historical report CSV",

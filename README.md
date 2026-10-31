@@ -102,6 +102,16 @@ python -m unittest discover -s tests -v
 
 These tests are software checks on synthetic or controlled examples. They are not evidence of scientific validity or real-world prediction performance.
 
+## Public access and optional team sign-in
+
+METEORWATCH is public by default. Visitors can explore the dashboard, historical records, maps, explanations, evaluation views, and public exports without creating an account.
+
+An optional **Google sign-in** panel is available in the sidebar for team access. It uses Streamlit's native OpenID Connect (OIDC) support. A successful Google login verifies identity; a separate email allowlist in Streamlit secrets determines whether the account has the `team_member` or `admin` role. Admin accounts inherit team-member permissions. Unlisted or unverified accounts retain public access but do not receive a team role.
+
+No private team tools are enabled yet. This release establishes the sign-in and role-check foundation for future restricted features; it does not make any existing public dashboard feature private.
+
+Authentication is disabled until the Google OIDC settings are configured in Streamlit secrets. Never commit `.streamlit/secrets.toml`, OAuth client secrets, cookie secrets, or AI-provider keys to GitHub. See [deployment and Google sign-in setup](docs/DEPLOYMENT.md).
+
 ## API keys and secrets
 
 Never commit API keys, passwords, `.env` files, or Streamlit secrets to GitHub. If using an optional external briefing provider, check the provider's current terms and account limits. A key entered into a hosted app is sent through that app's server to make the requested provider call; only enter a key when you trust the app operator and understand the provider's terms.

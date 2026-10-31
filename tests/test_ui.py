@@ -271,3 +271,46 @@ class RecordsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HAS_PLOTLY, "Plotly is required for chart layout tests")
+class PlotlyAxisLayoutTests(unittest.TestCase):
+    def test_shared_cartesian_axes_enable_automatic_margins(self):
+        from meteorwatch.ui.charts import TEMPLATE
+
+        self.assertTrue(TEMPLATE.layout.xaxis.automargin)
+        self.assertTrue(TEMPLATE.layout.yaxis.automargin)
+
+    def test_timeline_reserves_room_for_y_axis_labels(self):
+        from meteorwatch.ui.charts import timeline_figure
+
+        frame = pd.DataFrame({
+            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "energy": [1.25, 37500.0],
+            "review_status": ["Not flagged by either method", "IQR baseline only"],
+            "impact-e": [1.0, 2.0],
+            "alt": [30.0, 35.0],
+            "component_speed": [20.0, 21.0],
+        })
+        fig = timeline_figure(frame)
+        self.assertIsNotNone(fig)
+        self.assertTrue(fig.layout.yaxis.automargin)
+        self.assertGreaterEqual(fig.layout.margin.l, 80)
+
+    def test_horizontal_category_charts_enable_axis_automargin(self):
+        from meteorwatch.ui.charts import completeness_figure, outcome_figure
+
+        outcomes = pd.DataFrame({
+            "Pairwise outcome": ["Baseline flagged; ML not assessed", "Not flagged by either method"],
+            "Comparable records": [15, 322],
+        })
+        completeness = pd.DataFrame({
+            "Field": ["Velocity component X", "Reported energy"],
+            "Missing (%)": [66.2, 0.0],
+        })
+        outcome = outcome_figure(outcomes)
+        quality = completeness_figure(completeness)
+        self.assertTrue(outcome.layout.yaxis.automargin)
+        self.assertTrue(quality.layout.yaxis.automargin)
+        self.assertGreaterEqual(outcome.layout.margin.l, 180)
+        self.assertGreaterEqual(quality.layout.margin.l, 140)

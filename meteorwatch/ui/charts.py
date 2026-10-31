@@ -43,6 +43,7 @@ def _build_template() -> go.layout.Template:
         tickcolor="rgba(124,134,179,0.45)",
         tickfont=dict(size=12, color=DIM),
         title=dict(font=dict(size=12.5, color=DIM)),
+        automargin=True,
     )
     layout = go.Layout(
         font=dict(family=PLOT_FONT, color=TEXT, size=13),
@@ -58,7 +59,7 @@ def _build_template() -> go.layout.Template:
             font=dict(family=PLOT_FONT, size=13, color=TEXT),
             align="left",
         ),
-        margin=dict(l=8, r=8, t=16, b=8),
+        margin=dict(l=76, r=24, t=20, b=28),
         title=dict(font=dict(family=PLOT_DISPLAY_FONT, size=16, color=TEXT)),
     )
     return go.layout.Template(layout=layout)
@@ -164,7 +165,7 @@ def timeline_figure(frame: pd.DataFrame) -> go.Figure | None:
     fig.update_layout(
         height=470,
         hovermode="closest",
-        margin=dict(l=8, r=8, t=24, b=8),
+        margin=dict(l=104, r=28, t=28, b=30),
         legend=dict(orientation="h", x=0, y=-0.12, yanchor="top"),
         xaxis=dict(title=dict(text=""), showgrid=False),
         yaxis=dict(
@@ -324,9 +325,9 @@ def outcome_figure(outcomes: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(
         height=max(240, 62 * len(names)),
-        margin=dict(l=8, r=40, t=8, b=8),
+        margin=dict(l=210, r=52, t=14, b=30),
         xaxis=dict(title=dict(text="Comparable records"), showgrid=True),
-        yaxis=dict(autorange="reversed", showgrid=False, ticks=""),
+        yaxis=dict(autorange="reversed", showgrid=False, ticks="", automargin=True),
     )
     return fig
 
@@ -361,7 +362,7 @@ def sensitivity_figure(summary: pd.DataFrame) -> go.Figure:
         height=340,
         legend=dict(orientation="h", x=0, y=1.12, yanchor="bottom"),
         xaxis=dict(title=dict(text="Contamination-style score threshold (%)")),
-        yaxis=dict(title=dict(text="Records selected for review"), rangemode="tozero"),
+        yaxis=dict(title=dict(text="Records selected for review"), rangemode="tozero", automargin=True),
     )
     return fig
 
@@ -384,7 +385,7 @@ def completeness_figure(completeness: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(
         height=max(340, 34 * len(data) + 60),
-        margin=dict(l=8, r=48, t=8, b=8),
+        margin=dict(l=160, r=58, t=14, b=30),
         xaxis=dict(range=[0, 108], title=dict(text="Missing values (%)")),
         yaxis=dict(autorange="reversed", showgrid=False, ticks=""),
     )

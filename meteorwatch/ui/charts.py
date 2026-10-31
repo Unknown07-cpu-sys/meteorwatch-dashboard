@@ -173,6 +173,7 @@ def timeline_figure(frame: pd.DataFrame) -> go.Figure | None:
             tickvals=tick_values,
             ticktext=tick_text,
             title=dict(text="Reported energy (×10¹⁰ J), log scale"),
+            automargin=True,
         ),
     )
     return fig

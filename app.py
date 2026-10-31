@@ -252,6 +252,12 @@ with st.sidebar:
         )
     else:
         energy_floor = 0.0
+    missing_energy_count = int(df["energy"].isna().sum())
+    if missing_energy_count:
+        st.caption(
+            f"{missing_energy_count:,} catalogue records have no reported energy; "
+            "they remain included because the energy filter cannot be applied to them."
+        )
 
     search_text = st.text_input(
         "Search records",
@@ -263,7 +269,9 @@ with st.sidebar:
 
 filtered = df.copy()
 filtered = filtered[filtered["review_status"].astype(str).isin(selected_statuses)]
-filtered = filtered[filtered["energy"].notna() & (filtered["energy"] >= energy_floor)]
+# Apply the minimum-energy filter only where energy was reported. Keep missing-energy
+# records visible so a numeric filter does not silently hide incomplete observations.
+filtered = filtered[filtered["energy"].isna() | (filtered["energy"] >= energy_floor)]
 if date_range and isinstance(date_range, (tuple, list)) and len(date_range) == 2:
     start_date, end_date = date_range
     filtered = filtered[

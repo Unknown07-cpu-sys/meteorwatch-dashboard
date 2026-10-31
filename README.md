@@ -21,9 +21,13 @@ METEORWATCH is a student-built educational prototype that organises and analyses
 
 ## How the dashboard is organised
 
-A sidebar holds the filters that apply everywhere. The main page has six tabs: **Sky** (every record by date and energy), **Map**, **Records** (select a row to open its record sheet), **Briefing**, **Detector lab** (agreement, threshold sensitivity, status audit, logic tests) and **Data and method**.
+The app is one scrolling page rather than a set of tabs. It opens on a sky where every star is a real record (left to right is time, higher is more reported energy), then moves through chapters: **01 Sky** (every record by date and energy), **02 Map** (flat map or globe), **03 Two ways to look closer** (the two detectors and how much the Isolation Forest could assess), **04 Look at a single fireball** (select a row to open its record sheet), **05 Briefing** and **06 Check the checks** (detector agreement, threshold sensitivity, status audit, logic tests, data quality, method and limits).
 
-Colour is reserved for detector status. A **hollow** mark means the Isolation Forest did not assess the record; it is deliberately never drawn like “not flagged”.
+Filters live in the sidebar, which starts collapsed. They apply to chapters 01, 02, 04 and 05.
+
+Colour is reserved for detector status. A **faint or hollow** mark means the Isolation Forest did not assess the record; it is deliberately never drawn like “not flagged”.
+
+Scroll effects (words that brighten as they scroll in, charts that rise into view, a pinned title) use CSS scroll-driven animation. They run in Chrome, Edge and Safari 26 or later. Other browsers show the same content without the scroll motion, and everything is switched off for people who ask their system for reduced motion.
 
 ## How the agent works
 
@@ -58,33 +62,42 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Keep `meteorwatch_full_review_report.csv` beside `app.py`, or upload the report through the dashboard if the local file is unavailable. The report CSV is input data used by the app; it is not included in this update package.
+The app reads `data/meteorwatch_full_review_report.csv`. (It also accepts the file beside `app.py`.) You can upload a different report from the sidebar.
 
-## Main files
+## Project layout
 
-| File | Purpose |
-|---|---|
-| `app.py` | Streamlit dashboard: data loading, filters, tabs and page flow |
-| `meteorwatch_ui.py` | Visual design system: theme CSS, HTML components (record sheet, status key), Plotly charts |
-| `.streamlit/config.toml` | Base dark theme colours for Streamlit |
-| `meteorwatch_agent.py` | Transparent decision interpretation, explanations, structured review export, status audit, and synthetic self-tests |
-| `meteorwatch_exports.py` | Multi-sheet Excel workbook builder, including detector evaluation summary |
-| `meteorwatch_evaluation.py` | Conservative coverage, inter-method agreement and event-level comparison helpers |
-| `meteorwatch_sensitivity.py` | Score-threshold sensitivity summaries and event-level comparison exports |
-| `test_meteorwatch_agent.py` | Automated tests for agent decisions, explanations and structured CSV exports |
-| `test_meteorwatch_evaluation.py` | Tests for evaluation coverage, agreement and unknown/unassessed results |
-| `test_meteorwatch_sensitivity.py` | Tests for score-threshold sensitivity and explicit exclusion states |
-| `test_meteorwatch_exports.py` | Automated workbook export checks |
-| `test_meteorwatch_ui.py` | Checks for the design rules (for example, “not assessed” never looks like “not flagged”) and HTML escaping |
-| `requirements.txt` | Python dependencies |
-| `CHANGELOG.md` | Version-by-version project history |
+```
+app.py                       Streamlit entry point: page flow, filters, chapters
+requirements.txt
+data/
+  meteorwatch_full_review_report.csv
+meteorwatch/                 Python package
+  agent.py                   decision interpretation, explanations, structured export, status audit, self-tests
+  evaluation.py              coverage, inter-method agreement, event-level comparison
+  sensitivity.py             score-threshold sensitivity study
+  exports.py                 multi-sheet Excel workbook
+  data.py                    report loading and normalisation
+  briefing.py                rule-based briefing and optional AI briefing
+  records.py                 record ordering, labels and the readable table
+  ui/
+    design.py                tokens, status encoding, number and date formatting
+    theme.py                 the page stylesheet, including the scroll-story motion
+    components.py            status key, coverage bar, callouts, record sheet
+    story.py                 hero sky, scroll statement, chapter heads, pinned scene, closing
+    charts.py                Plotly figures and the shared dark template
+tests/                       unit tests (run with python -m unittest discover -s tests)
+docs/DEPLOYMENT.md           deployment notes
+.streamlit/config.toml       base theme colours
+.devcontainer/               optional GitHub Codespaces setup
+CHANGELOG.md                 version-by-version history
+```
 
 ## Test the agent and exports
 
 Run tests from the project directory:
 
 ```bash
-python -m unittest -v
+python -m unittest discover -s tests -v
 ```
 
 These tests are software checks on synthetic or controlled examples. They are not evidence of scientific validity or real-world prediction performance.

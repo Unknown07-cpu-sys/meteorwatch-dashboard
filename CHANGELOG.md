@@ -1,5 +1,14 @@
 # Changelog
 
+## Post-v13 maintenance — chart readability, endpoint hardening, and filter completeness
+
+- Increased Plotly chart margins and enabled automatic axis margins so numerical and category tick labels have room to render, including in narrow dashboard columns.
+- Added chart-layout regression tests for shared axis behaviour, the timeline, detector outcomes, and data completeness chart.
+- Restricted OpenAI-compatible briefing requests to HTTPS endpoints on explicitly supported provider hosts and blocked redirects to reduce the risk of arbitrary server-side requests.
+- Kept records with missing reported energy visible when the minimum-energy filter is used; the filter now applies only to records with a reported value, and the sidebar explains this behaviour.
+- Updated the Streamlit theme comment to point to the reorganised UI stylesheet and ignored local virtual-environment folders.
+
+
 Notable project changes are recorded here. This file tracks releases; `README.md` remains the stable overview of the project's purpose, transparent agent design, setup, and scientific limits.
 
 ## v13 — Scroll story and project reorganisation

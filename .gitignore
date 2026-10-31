@@ -1,0 +1,15 @@
+# Python bytecode/cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local secrets and environment files
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

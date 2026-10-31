@@ -315,6 +315,57 @@ a{color:var(--mw-text);text-underline-offset:3px;}
 [data-testid="stDataFrame"]{border:1px solid var(--mw-line);border-radius:8px;overflow:hidden;}
 [data-testid="stCaptionContainer"]{color:var(--mw-dim);}
 hr{border-color:var(--mw-line);}
+/* ---- cinematic scroll treatment ---- */
+.stApp{background:radial-gradient(circle at 78%% 8%%,rgba(115,79,201,.17),transparent 29rem),radial-gradient(circle at 14%% 32%%,rgba(42,136,180,.12),transparent 28rem),linear-gradient(180deg,#080d1b 0%%,#0b1226 42%%,#0d1530 100%%);overflow-x:hidden;}
+.stApp::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.55;z-index:0;background-image:radial-gradient(circle at 12%% 14%%,rgba(255,255,255,.8) 0 1px,transparent 1.5px),radial-gradient(circle at 67%% 19%%,rgba(186,207,255,.6) 0 1px,transparent 1.5px),radial-gradient(circle at 38%% 61%%,rgba(255,255,255,.42) 0 1px,transparent 1.4px),radial-gradient(circle at 91%% 74%%,rgba(186,207,255,.55) 0 1px,transparent 1.5px);background-size:230px 190px,310px 270px,280px 250px,360px 330px;}
+.block-container{position:relative;z-index:1;max-width:1380px;padding-top:1.1rem;padding-bottom:5rem;}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,rgba(10,16,35,.96),rgba(16,24,55,.94));backdrop-filter:blur(18px);}
+.mw-mast{min-height:70vh;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(124,134,179,.26);border-radius:28px;margin:.2rem 0 1.25rem;padding:clamp(2rem,6vw,6rem);overflow:hidden;isolation:isolate;background:linear-gradient(135deg,rgba(15,25,53,.72),rgba(11,17,38,.4));box-shadow:0 28px 90px rgba(0,0,0,.28);}
+.mw-mast::before{content:"";position:absolute;right:-11rem;top:-12rem;width:38rem;height:38rem;border-radius:50%%;border:1px solid rgba(175,185,255,.28);box-shadow:0 0 0 42px rgba(122,111,229,.035),0 0 0 86px rgba(122,111,229,.025);transform:rotate(-18deg);z-index:-1;}
+.mw-mast::after{content:"";position:absolute;right:4rem;top:14%%;width:24rem;height:1px;background:linear-gradient(90deg,transparent,rgba(187,202,255,.75),transparent);transform:rotate(-34deg);opacity:.7;z-index:-1;}
+.mw-mast-row{align-items:flex-start;position:relative;z-index:1;}
+.mw-mast .mw-wordmark{flex:1 1 auto;min-width:0;white-space:nowrap;font-size:clamp(3.4rem,8vw,7.4rem)!important;line-height:.88!important;letter-spacing:-.07em!important;text-shadow:0 0 36px rgba(187,202,255,.18);}
+.mw-mast .mw-wordmark::before{content:"// HISTORICAL FIREBALL REVIEW DESK";display:block;font-family:var(--mw-body);font-size:.72rem;letter-spacing:.2em;font-weight:700;color:#8fa0db;margin:0 0 1.2rem .15rem;}
+.mw-mast .mw-wordmark::after{height:3px;width:55%%;top:57%%;background:linear-gradient(90deg,#f9d17d,rgba(249,209,125,0));}
+.mw-facts{justify-content:flex-end;gap:.8rem;max-width:30rem;}
+.mw-facts div{min-width:8rem;padding:.8rem 1rem;border:1px solid rgba(124,134,179,.25);border-radius:14px;background:rgba(16,25,53,.6);}
+.mw-facts dt{font-size:.67rem;letter-spacing:.14em;text-transform:uppercase;color:#7f8bc1;}
+.mw-facts dd{font-size:.84rem;color:#d5dcff;margin-top:.25rem;}
+.mw-lede{font-family:var(--mw-display);font-size:clamp(1.35rem,2.7vw,2.25rem);line-height:1.12;max-width:24ch;margin:clamp(2.4rem,8vh,5.5rem) 0 .9rem;letter-spacing:-.035em;}
+.mw-scope{max-width:52ch;font-size:.94rem;color:#aeb9df;}
+.mw-hero-meta{display:flex;align-items:center;gap:1rem;margin-top:2.4rem;color:#8998d0;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;}
+.mw-hero-meta::before{content:"";display:block;width:3.5rem;height:1px;background:#f9d17d;}
+.mw-chapter-nav{position:sticky;top:.65rem;z-index:20;display:flex;align-items:center;gap:.35rem;overflow-x:auto;margin:0 0 1.6rem;padding:.45rem;border:1px solid rgba(124,134,179,.27);border-radius:999px;background:rgba(10,16,35,.78);backdrop-filter:blur(18px);box-shadow:0 10px 30px rgba(0,0,0,.18);}
+.mw-chapter-nav a{white-space:nowrap;text-decoration:none!important;color:#9da9d0;padding:.58rem .85rem;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;transition:background .2s ease,color .2s ease,transform .2s ease;}
+.mw-chapter-nav a:hover,.mw-chapter-nav a:focus-visible{background:rgba(190,204,255,.12);color:#f3f1ff;transform:translateY(-1px);}
+.mw-chapter-nav .mw-nav-mark{width:.42rem;height:.42rem;border-radius:50%%;background:#f9d17d;box-shadow:0 0 16px #f9d17d;margin:0 .45rem 0 .35rem;flex:none;}
+.mw-signal-strip{display:grid;grid-template-columns:1.35fr repeat(4,1fr);gap:0;margin:0 0 2.1rem;border-top:1px solid rgba(124,134,179,.32);border-bottom:1px solid rgba(124,134,179,.32);}
+.mw-signal{padding:1.05rem 1.1rem;border-right:1px solid rgba(124,134,179,.22);}
+.mw-signal:last-child{border-right:0;}
+.mw-signal .mw-signal-value{display:block;font-family:var(--mw-display);font-size:clamp(1.5rem,3vw,2.6rem);font-weight:750;letter-spacing:-.05em;color:#f5f1ff;line-height:1;}
+.mw-signal .mw-signal-label{display:block;margin-top:.38rem;color:#8e9ac6;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;line-height:1.3;}
+.mw-signal--accent .mw-signal-value{color:#f9d17d;}
+.mw-section{position:relative;margin:3.2rem 0 .8rem;padding-top:.85rem;}
+.mw-section::before{content:"";position:absolute;left:0;top:0;width:4.6rem;height:2px;background:linear-gradient(90deg,#f9d17d,transparent);}
+.mw-section .mw-h2{font-size:clamp(1.7rem,3vw,2.5rem)!important;letter-spacing:-.045em!important;}
+.mw-section p{max-width:62ch;color:#9ea9cf;}
+.mw-section .mw-h2::after{content:" /";color:#6977ad;font-weight:400;}
+.mw-key{padding:1.5rem 1.35rem;border:1px solid rgba(124,134,179,.23);border-radius:20px;background:linear-gradient(135deg,rgba(20,31,66,.76),rgba(15,24,52,.48));box-shadow:0 18px 50px rgba(0,0,0,.14);}
+.mw-key-total .mw-num{font-size:clamp(2.8rem,5vw,4.6rem);letter-spacing:-.07em;}
+.mw-cover{padding:1rem 1.2rem;border:1px solid rgba(124,134,179,.18);border-radius:16px;background:rgba(17,27,58,.46);}
+.mw-cover-bar{height:8px;background:#131e40;border-color:rgba(124,134,179,.28);}
+.mw-sheet{border-radius:22px;background:linear-gradient(145deg,rgba(22,34,72,.9),rgba(14,23,49,.82));border-color:rgba(124,134,179,.28);box-shadow:0 24px 70px rgba(0,0,0,.2);}
+.mw-callout{border-left-color:#f9d17d;border-radius:4px 18px 18px 4px;background:rgba(20,31,66,.7);}
+.stTabs{margin-top:1rem;}
+.stTabs [data-baseweb="tab-list"]{position:sticky;top:4.75rem;z-index:15;gap:.3rem;padding:.4rem;border:1px solid rgba(124,134,179,.25);border-radius:17px;background:rgba(10,16,35,.8);backdrop-filter:blur(16px);overflow-x:auto;}
+.stTabs button[data-baseweb="tab"]{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;border-radius:12px;padding:.72rem 1rem;white-space:nowrap;}
+.stTabs button[data-baseweb="tab"][aria-selected="true"]{background:rgba(193,204,255,.11);color:#f7f4ff;}
+.stTabs [data-baseweb="tab-highlight"]{background:#f9d17d;height:2px;}
+[data-testid="stPlotlyChart"],[data-testid="stDataFrame"]{border:1px solid rgba(124,134,179,.2);border-radius:20px;background:rgba(13,21,46,.35);overflow:hidden;}
+[data-testid="stMetric"]{border-radius:16px;background:rgba(19,30,64,.72);border-color:rgba(124,134,179,.24);}
+.mw-foot{max-width:none;padding:1.3rem 0 0;color:#7e8bb7;}
+@media (max-width:850px){.mw-mast{min-height:72vh;padding:2rem 1.35rem;border-radius:21px}.mw-mast-row{display:block}.mw-mast .mw-wordmark{font-size:clamp(2.35rem,10.3vw,4.5rem)!important;white-space:normal}.mw-facts{justify-content:flex-start;margin-top:2rem}.mw-facts div{min-width:0;flex:1}.mw-signal-strip{grid-template-columns:repeat(2,1fr)}.mw-signal:first-child{grid-column:span 2}.mw-signal:nth-child(2){border-bottom:1px solid rgba(124,134,179,.22)}.mw-signal:nth-child(3){border-bottom:1px solid rgba(124,134,179,.22)}.stTabs [data-baseweb="tab-list"]{top:3.5rem}.mw-key{grid-template-columns:1fr}.mw-key-list{margin-top:1.5rem!important;}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}
 """
 
 
@@ -357,12 +408,34 @@ def masthead_html(source_label: str, n_records: int, first: Any, last: Any) -> s
         f'<div><dt>File</dt><dd>{esc(source_label)}</dd></div>'
         '</dl>'
         '</div>'
-        '<p class="mw-lede">Browse NASA/JPL’s historical fireball records, see which statistical '
-        'checks flagged them, and decide which ones deserve a closer look.</p>'
+        '<p class="mw-lede">A guided flight through NASA/JPL’s historical fireball records — from raw signal to human review.</p>'
         '<p class="mw-scope"><strong>Historical records only.</strong> A flag means “take a closer look”, '
         'not “dangerous”. METEORWATCH does not forecast impacts or issue warnings.</p>'
+        '<div class="mw-hero-meta">scroll to navigate the archive</div>'
         '</header>'
     )
+
+
+def chapter_nav_html() -> str:
+    """A lightweight orientation rail for the long-form dashboard journey."""
+    links = [("01", "Sky", "#sky"), ("02", "Map", "#map"), ("03", "Records", "#records"), ("04", "Briefing", "#briefing"), ("05", "Lab", "#lab"), ("06", "Method", "#method")]
+    items = ''.join(f'<a href="{href}">{num} / {label}</a>' for num, label, href in links)
+    return f'<nav class="mw-chapter-nav" aria-label="Dashboard chapters"><span class="mw-nav-mark" aria-hidden="true"></span>{items}</nav>'
+
+
+def signal_strip_html(total: int, in_view: int, baseline: int, forest: int, mapped: int) -> str:
+    """Top-of-page signal readout: factual, compact, and visually distinct from status colours."""
+    cells = [
+        ("mw-signal mw-signal--accent", f"{total:,}", "historical records in archive"),
+        ("mw-signal", f"{in_view:,}", "records in current view"),
+        ("mw-signal", f"{baseline:,}", "IQR review prompts"),
+        ("mw-signal", f"{forest:,}", "Isolation Forest prompts"),
+        ("mw-signal", f"{mapped:,}", "records with coordinates"),
+    ]
+    return '<section class="mw-signal-strip" aria-label="Archive signal summary">' + ''.join(
+        f'<div class="{cls}"><span class="mw-signal-value">{value}</span><span class="mw-signal-label">{label}</span></div>'
+        for cls, value, label in cells
+    ) + '</section>'
 
 
 def status_key_html(counts: Sequence[tuple[str, int]], in_view: int, catalogue: int) -> str:
@@ -903,3 +976,35 @@ def completeness_figure(completeness: pd.DataFrame) -> go.Figure:
         yaxis=dict(autorange="reversed", showgrid=False, ticks=""),
     )
     return fig
+
+
+
+def sound_console_html() -> str:
+    # Browser-native Web Audio keeps the theme lightweight and asset-free.
+    return '''
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}html,body{background:#0b1226}body{margin:0;font-family:Inter,system-ui,sans-serif;color:#eef0ff}.mw-console{position:relative;display:flex;align-items:center;gap:1rem;min-height:68px;padding:.75rem 1rem;border:1px solid rgba(124,134,179,.25);border-radius:18px;background:linear-gradient(135deg,rgba(18,29,62,.86),rgba(10,17,38,.72));overflow:hidden}.mw-console:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 88% 30%,rgba(249,209,125,.14),transparent 13rem);pointer-events:none}.mw-console__orb{position:relative;width:34px;height:34px;border-radius:50%;border:1px solid rgba(249,209,125,.7);box-shadow:0 0 18px rgba(249,209,125,.35),inset 0 0 14px rgba(199,155,255,.25);flex:none}.mw-console__orb:after{content:"";position:absolute;inset:7px;border-radius:50%;background:#f9d17d;box-shadow:0 0 14px #f9d17d}.mw-console__copy{min-width:120px;flex:1}.mw-console__eyebrow{display:block;color:#f9d17d;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.mw-console__status{display:block;margin-top:.2rem;color:#9faad1;font-size:.76rem}.mw-console__actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.45rem}.mw-console button{appearance:none;border:1px solid rgba(154,168,221,.35);border-radius:999px;background:rgba(19,30,64,.68);color:#dce2ff;padding:.48rem .72rem;font-size:.7rem;font-weight:750;letter-spacing:.06em;cursor:pointer;transition:background .2s ease,border-color .2s ease,transform .2s ease}.mw-console button:hover,.mw-console button:focus-visible{background:rgba(193,204,255,.14);border-color:#d9e0ff;transform:translateY(-1px);outline:none}.mw-console button[data-on="true"]{border-color:#f9d17d;color:#fff2c7;box-shadow:0 0 14px rgba(249,209,125,.14)}.mw-console button[data-on="true"]:before{content:"● ";color:#f9d17d}.mw-console__ping{border-color:rgba(249,209,125,.65)!important}.mw-console__trace{position:absolute;right:1rem;bottom:.5rem;width:100px;height:1px;background:linear-gradient(90deg,transparent,#f9d17d,transparent);opacity:.55;animation:mw-trace 2.8s ease-in-out infinite}.mw-console.reduced .mw-console__trace{animation:none;opacity:.25}@keyframes mw-trace{0%,100%{transform:translateX(-35px);opacity:.1}50%{transform:translateX(25px);opacity:.7}}@media(max-width:620px){.mw-console{align-items:flex-start}.mw-console__actions{justify-content:flex-start}.mw-console__copy{min-width:0}.mw-console{flex-wrap:wrap}.mw-console__actions{width:100%}}
+</style>
+<div class="mw-console" id="mw-console" aria-label="Mission sound and motion controls">
+  <div class="mw-console__orb" aria-hidden="true"></div>
+  <div class="mw-console__copy"><span class="mw-console__eyebrow">Mission controls</span><span class="mw-console__status" id="mw-console-status" aria-live="polite">Sound is off — tap a control to begin.</span></div>
+  <div class="mw-console__actions"><button type="button" id="mw-ambient" data-on="false" aria-pressed="false">Ambient hum</button><button type="button" id="mw-fx" data-on="false" aria-pressed="false">Signal FX</button><button type="button" id="mw-motion" data-on="false" aria-pressed="false">Calm motion</button><button type="button" class="mw-console__ping" id="mw-ping">Ping archive</button></div><span class="mw-console__trace" aria-hidden="true"></span>
+</div>
+<script>
+(function(){
+  const root=document.getElementById('mw-console'), status=document.getElementById('mw-console-status');
+  const buttons={ambient:document.getElementById('mw-ambient'),fx:document.getElementById('mw-fx'),motion:document.getElementById('mw-motion')};
+  let ctx=null,ambient=null,ambientGain=null;
+  const prefs=JSON.parse(localStorage.getItem('mw-mission-controls')||'{}');
+  function audio(){if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)()}if(ctx.state==='suspended'){ctx.resume()}return ctx}
+  function tone(freq=520,duration=.12,type='sine',volume=.045){if(prefs.fx===false&&type!=='ambient')return;const c=audio(),o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(freq,c.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(80,freq*.62),c.currentTime+duration);g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(volume,c.currentTime+.012);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+duration);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+duration+.02)}
+  function save(){localStorage.setItem('mw-mission-controls',JSON.stringify(prefs))}
+  function render(){Object.entries(buttons).forEach(([key,b])=>{const on=!!prefs[key];b.dataset.on=String(on);b.setAttribute('aria-pressed',String(on))});root.classList.toggle('reduced',!!prefs.motion);status.textContent=prefs.ambient?'Ambient hum online · archive ready':prefs.fx?'Signal FX armed · archive ready':'Sound is off — tap a control to begin.'}
+  buttons.fx.addEventListener('click',()=>{prefs.fx=!prefs.fx;save();render();if(prefs.fx)tone(640,.16,'triangle',.06)});
+  buttons.ambient.addEventListener('click',()=>{prefs.ambient=!prefs.ambient;save();if(prefs.ambient){const c=audio();ambient=c.createOscillator();ambientGain=c.createGain();ambient.type='sine';ambient.frequency.value=72;ambientGain.gain.value=.012;ambient.connect(ambientGain).connect(c.destination);ambient.start();tone(220,.22,'sine',.035)}else if(ambient){ambient.stop();ambient=null}render()});
+  buttons.motion.addEventListener('click',()=>{prefs.motion=!prefs.motion;save();render();if(prefs.fx)tone(prefs.motion?260:520,.1,'sine',.04)});
+  document.getElementById('mw-ping').addEventListener('click',()=>{prefs.fx=true;save();render();tone(880,.08,'square',.055);setTimeout(()=>tone(1320,.16,'triangle',.045),95);status.textContent='Archive ping received · hover and explore';});
+  root.querySelectorAll('button').forEach(b=>b.addEventListener('mouseenter',()=>{if(prefs.fx)tone(360,.045,'sine',.02)}));
+  render();
+})();
+</script>'''

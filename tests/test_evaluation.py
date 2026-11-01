@@ -70,6 +70,12 @@ class DetectorEvaluationTests(unittest.TestCase):
         self.assertEqual(row["Value"], "No")
         self.assertIn("precision, recall and accuracy are not estimated", row["Interpretation"])
 
+    def test_summary_value_column_is_consistently_textual(self):
+        table = build_detector_evaluation_table(pd.DataFrame([
+            {"baseline_flag": True, "ml_assessed": True, "iforest_flag": True}
+        ]))
+        self.assertTrue(table["Value"].map(lambda value: isinstance(value, str)).all())
+
     def test_event_level_export_explains_non_comparable_rows(self):
         frame = pd.DataFrame([
             {"date": pd.Timestamp("2020-01-01"), "energy": 1.2,

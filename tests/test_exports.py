@@ -76,7 +76,7 @@ class MeteorwatchWorkbookTests(unittest.TestCase):
         names = [node.attrib["name"] for node in root.findall("x:sheets/x:sheet", ns)]
         self.assertEqual(names, [
             "Start Here", "Event Review", "Technical Data", "Data Quality",
-            "Review Status", "Detector Evaluation", "Sensitivity Study", "Agent Tests",
+            "Review Status", "Detector Evaluation", "Sensitivity Study", "Threshold Sensitivity", "Agent Tests",
         ])
 
     def test_workbook_includes_review_caveats(self):

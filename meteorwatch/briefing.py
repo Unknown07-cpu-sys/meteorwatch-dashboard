@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlsplit
 from typing import Any
+from urllib.parse import urlsplit
 
 import numpy as np
 import pandas as pd
@@ -126,31 +126,30 @@ def make_ai_briefing(
         endpoint = base_url.strip().rstrip("/")
         parsed = urlsplit(endpoint)
         allowed_hosts = {
-            "openrouter.ai",
-            "api.groq.com",
-            "api.deepseek.com",
-            "api.mistral.ai",
-            "api.together.xyz",
-            "api.cerebras.ai",
-            "api.openai.com",
-            "api.x.ai",
-            "api.perplexity.ai",
-            "api.fireworks.ai",
+            "openrouter.ai", "api.groq.com", "api.deepseek.com", "api.mistral.ai",
+            "api.together.xyz", "api.cerebras.ai", "api.openai.com", "api.x.ai",
+            "api.perplexity.ai", "api.fireworks.ai",
         }
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("The API base URL has an invalid port.") from exc
+        hostname = parsed.hostname.lower() if parsed.hostname else None
         if (
-            parsed.scheme != "https"
-            or parsed.hostname not in allowed_hosts
+            parsed.scheme.lower() != "https"
+            or hostname not in allowed_hosts
             or parsed.username is not None
             or parsed.password is not None
-            or parsed.port not in (None, 443)
+            or port not in (None, 443)
             or parsed.query
             or parsed.fragment
         ):
             raise ValueError(
                 "Use HTTPS with a supported provider host: openrouter.ai, api.groq.com, "
-                "api.deepseek.com, api.mistral.ai, api.together.xyz, api.cerebras.ai, " 
+                "api.deepseek.com, api.mistral.ai, api.together.xyz, api.cerebras.ai, "
                 "api.openai.com, api.x.ai, api.perplexity.ai, or api.fireworks.ai."
             )
+        endpoint = parsed.geturl().rstrip("/")
         if not endpoint.endswith("/chat/completions"):
             endpoint += "/chat/completions"
 

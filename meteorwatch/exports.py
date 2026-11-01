@@ -174,3 +174,12 @@ def build_review_workbook(filtered_df: pd.DataFrame, full_df: pd.DataFrame | Non
         _style_workbook(writer, sheets)
 
     return output.getvalue()
+
+
+def csv_download(frame: pd.DataFrame, drop_columns: tuple[str, ...] = ()) -> bytes:
+    """Return Excel-friendly UTF-8 CSV bytes for a download button."""
+    return (
+        frame.drop(columns=list(drop_columns), errors="ignore")
+        .to_csv(index=False, lineterminator="\n")
+        .encode("utf-8-sig")
+    )

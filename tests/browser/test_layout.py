@@ -21,6 +21,7 @@ except ImportError:
     HAS_PLAYWRIGHT = False
 
 ROOT = Path(__file__).resolve().parents[2]
+SHOTS = Path(__file__).resolve().parent / "screenshots"
 PORT = 8599
 URL = f"http://127.0.0.1:{PORT}"
 ENABLED = HAS_PLAYWRIGHT and os.environ.get("RUN_BROWSER_TESTS") == "1"
@@ -42,6 +43,7 @@ def wait_for_server(timeout: int = 90) -> None:
 class ResponsiveSmokeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        SHOTS.mkdir(exist_ok=True)
         cls.server = subprocess.Popen(
             [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"),
              "--server.headless=true", f"--server.port={PORT}",
@@ -67,6 +69,7 @@ class ResponsiveSmokeTests(unittest.TestCase):
                     page.goto(URL, wait_until="domcontentloaded")
                     page.wait_for_selector(".mw-hero", timeout=60000)
                     page.wait_for_timeout(500)
+                    page.screenshot(path=str(SHOTS / f"viewport-{width}.png"), full_page=True)
                     metrics = page.evaluate("""() => ({
                         viewport: document.documentElement.clientWidth,
                         document: document.documentElement.scrollWidth,

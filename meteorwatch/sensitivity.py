@@ -242,7 +242,4 @@ def build_sensitivity_summary_table(frame: pd.DataFrame) -> pd.DataFrame:
     else:
         rows.append(("Study availability", "Available", "See the sensitivity scenarios for threshold-dependent selected-record counts and overlap."))
     table = pd.DataFrame(rows, columns=["Metric", "Value", "Interpretation"])
-    # Values mix counts, percentages and explanatory labels; keep this report column
-    # textual for consistent display and serialization across Streamlit/PyArrow versions.
-    table["Value"] = table["Value"].map(lambda value: "" if value is None else str(value))
     return table

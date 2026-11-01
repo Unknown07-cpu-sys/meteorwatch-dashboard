@@ -5,6 +5,7 @@
     components  small HTML components: status key, coverage bar, record sheet
     story       scroll-story sections: hero sky, statement, chapter heads, pinned scene
     charts      Plotly figures and the shared dark template       (needs plotly)
+    tables      safe display preparation for mixed-type dataframes
 
 ``from meteorwatch import ui`` exposes every public name in one place. Names are loaded
 on first use, so importing ``meteorwatch.ui.design`` never requires Plotly.
@@ -31,6 +32,7 @@ _EXPORTS: dict[str, tuple[str, ...]] = {
         "chapter_head_html", "closing_html", "detectors_story_html", "hero_html",
         "sky_dots_html", "statement_html",
     ),
+    "tables": ("prepare_display_table",),
     "charts": (
         "PLOT_CONFIG", "TEMPLATE", "completeness_figure", "energy_histogram_figure",
         "locator_figure", "map_figure", "outcome_figure", "sensitivity_figure", "timeline_figure",

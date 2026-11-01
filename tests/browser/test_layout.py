@@ -70,6 +70,21 @@ class ResponsiveSmokeTests(unittest.TestCase):
                     page.wait_for_selector(".mw-hero", timeout=60000)
                     page.wait_for_timeout(500)
                     page.screenshot(path=str(SHOTS / f"viewport-{width}.png"), full_page=True)
+                    if width == 390:
+                        outcome_section = page.locator(".mw-section").filter(
+                            has_text="Outcomes among comparable records"
+                        )
+                        outcome_section.scroll_into_view_if_needed()
+                        outcome_chart = outcome_section.locator(
+                            "xpath=following::*[@data-testid='stPlotlyChart'][1]"
+                        )
+                        outcome_chart.wait_for(state="visible", timeout=60000)
+                        outcome_chart.scroll_into_view_if_needed()
+                        page.wait_for_timeout(400)
+                        chart_box = outcome_chart.bounding_box()
+                        self.assertIsNotNone(chart_box)
+                        self.assertGreaterEqual(chart_box["width"], 340, chart_box)
+                        outcome_chart.screenshot(path=str(SHOTS / "viewport-390-outcomes.png"))
                     metrics = page.evaluate("""() => ({
                         viewport: document.documentElement.clientWidth,
                         document: document.documentElement.scrollWidth,

@@ -80,7 +80,7 @@ def show_plot(fig: Any, key: str | None = None) -> None:
 
 
 def show_table(data: pd.DataFrame, **kwargs: Any) -> None:
-    st.dataframe(data, hide_index=True, **STRETCH_DF, **kwargs)
+    st.dataframe(ui.prepare_display_table(data), hide_index=True, **STRETCH_DF, **kwargs)
 
 
 def say(html_text: str) -> None:
@@ -481,7 +481,7 @@ with chapter("explore"):
         selected_position: int | None = None
         try:
             table_event = st.dataframe(
-                table,
+                ui.prepare_display_table(table),
                 hide_index=True,
                 height=330,
                 column_config=table_column_config(),

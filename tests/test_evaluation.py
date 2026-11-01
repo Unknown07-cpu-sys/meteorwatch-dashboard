@@ -3,6 +3,7 @@ import unittest
 
 import pandas as pd
 
+from meteorwatch.ui.tables import prepare_display_table
 from meteorwatch.evaluation import (
     build_detector_evaluation,
     build_detector_evaluation_table,
@@ -70,11 +71,14 @@ class DetectorEvaluationTests(unittest.TestCase):
         self.assertEqual(row["Value"], "No")
         self.assertIn("precision, recall and accuracy are not estimated", row["Interpretation"])
 
-    def test_summary_value_column_is_consistently_textual(self):
+    def test_mixed_summary_values_are_normalized_for_display(self):
         table = build_detector_evaluation_table(pd.DataFrame([
             {"baseline_flag": True, "ml_assessed": True, "iforest_flag": True}
         ]))
-        self.assertTrue(table["Value"].map(lambda value: isinstance(value, str)).all())
+        self.assertGreater(table["Value"].dropna().map(type).nunique(), 1)
+        display_table = prepare_display_table(table)
+        self.assertEqual(str(display_table["Value"].dtype), "string")
+        self.assertTrue(display_table["Value"].dropna().map(lambda value: isinstance(value, str)).all())
 
     def test_event_level_export_explains_non_comparable_rows(self):
         frame = pd.DataFrame([

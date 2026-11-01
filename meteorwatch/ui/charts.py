@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import textwrap
 from typing import Any
 
 import numpy as np
@@ -310,6 +311,10 @@ def outcome_figure(outcomes: pd.DataFrame) -> go.Figure:
     """Pairwise detector outcomes, coloured by the status each outcome corresponds to."""
     names = outcomes["Pairwise outcome"].astype(str).tolist()
     counts = outcomes["Comparable records"].astype(int).tolist()
+    tick_labels = [
+        "<br>".join(textwrap.wrap(name, width=18, break_long_words=False, break_on_hyphens=False))
+        for name in names
+    ]
     fig = _new_fig()
     fig.add_trace(
         go.Bar(
@@ -325,10 +330,14 @@ def outcome_figure(outcomes: pd.DataFrame) -> go.Figure:
         )
     )
     fig.update_layout(
-        height=max(240, 62 * len(names)),
-        margin=dict(l=210, r=52, t=14, b=30),
+        height=max(250, 70 * len(names)),
+        margin=dict(l=142, r=44, t=14, b=36),
         xaxis=dict(title=dict(text="Comparable records"), showgrid=True),
-        yaxis=dict(autorange="reversed", showgrid=False, ticks="", automargin=True),
+        yaxis=dict(
+            autorange="reversed", showgrid=False, ticks="", automargin=True,
+            tickmode="array", tickvals=names, ticktext=tick_labels,
+            tickfont=dict(size=11),
+        ),
     )
     return fig
 

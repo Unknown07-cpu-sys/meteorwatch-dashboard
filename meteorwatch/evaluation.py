@@ -189,10 +189,6 @@ def build_detector_evaluation_table(frame: pd.DataFrame) -> pd.DataFrame:
         ("Ground-truth labels available", "No", "The project currently has no independently verified anomaly labels; precision, recall and accuracy are not estimated."),
     ]
     table = pd.DataFrame(rows, columns=["Metric", "Value", "Interpretation"])
-    # This is a human-readable report column containing counts, percentages and labels.
-    # Keep it consistently textual so Streamlit/PyArrow does not infer an integer type
-    # from early rows and then fail on a later percentage string.
-    table["Value"] = table["Value"].map(lambda value: "" if value is None else str(value))
     return table
 
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 import hashlib
 import inspect
+import os
 
 import numpy as np
 import pandas as pd
@@ -17,16 +18,17 @@ from meteorwatch.agent import (
     run_agent_self_tests,
 )
 from meteorwatch.briefing import event_briefing, make_ai_briefing
-from meteorwatch.data import load_report as read_report, safe_int
+from meteorwatch.data import ReportLoadError, load_report as read_report
 from meteorwatch.evaluation import (
     build_detector_evaluation,
     build_detector_evaluation_table,
     build_event_level_comparison,
 )
-from meteorwatch.exports import build_review_workbook
+from meteorwatch.exports import build_review_workbook, csv_download
 from meteorwatch.records import (
     SEARCH_COLUMNS,
     SORT_OPTIONS,
+    apply_energy_floor,
     event_labels,
     py_scalar,
     records_table,
@@ -34,12 +36,18 @@ from meteorwatch.records import (
     sort_events,
 )
 from meteorwatch.sensitivity import build_score_threshold_sensitivity
+from meteorwatch.summary import count_by_status, summarise
 
 
 APP_TITLE = "METEORWATCH"
 DATA_FILENAME = "meteorwatch_full_review_report.csv"
 ROOT = Path(__file__).resolve().parent
-DATA_CANDIDATES = [ROOT / "data" / DATA_FILENAME, ROOT / DATA_FILENAME, Path(DATA_FILENAME)]
+DATA_CANDIDATES = [
+    *([Path(os.environ["METEORWATCH_DATA"])] if os.environ.get("METEORWATCH_DATA") else []),
+    ROOT / "data" / DATA_FILENAME,
+    ROOT / DATA_FILENAME,
+    Path(DATA_FILENAME),
+]
 NASA_API_DOCS = "https://ssd-api.jpl.nasa.gov/doc/fireball.html"
 NASA_FIREBALLS = "https://cneos.jpl.nasa.gov/fireballs/"
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
@@ -165,16 +173,11 @@ try:
             )
         )
         st.stop()
-except Exception as exc:
-    st.error(f"Could not load the report: {exc}")
+except ReportLoadError as exc:
+    st.error(str(exc))
     st.stop()
-
-required = {"date", "energy", "review_status"}
-if not required.issubset(df.columns):
-    st.error(
-        "This CSV does not look like the METEORWATCH full-review report. "
-        f"Required columns: {', '.join(sorted(required))}."
-    )
+except Exception as exc:  # anything unexpected: say what failed without a traceback
+    st.error(f"Could not load the report ({type(exc).__name__}): {exc}")
     st.stop()
 
 if "baseline_flag" not in df.columns:
@@ -188,13 +191,13 @@ if "explanation" not in df.columns:
     df["explanation"] = "No saved explanation is available for this row."
 
 # Catalogue-level figures derived from the loaded data.
-total_records = len(df)
-ml_assessed_count = int(df["ml_assessed"].eq(True).sum())
-ml_not_assessed_count = int(df["ml_assessed"].eq(False).sum())
-ml_assessment_unknown_count = int(df["ml_assessed"].isna().sum())
-baseline_count = safe_int(df["baseline_flag"])
-ml_flag_count = safe_int(df["iforest_flag"])
-coordinate_count = int(df[["map_latitude", "map_longitude"]].notna().all(axis=1).sum())
+summary = summarise(df)
+total_records = summary.records
+ml_assessed_count = summary.ml_assessed
+ml_not_assessed_count = summary.ml_not_assessed
+ml_assessment_unknown_count = summary.ml_unknown
+baseline_count = summary.baseline_flags
+ml_flag_count = summary.forest_flags
 
 # ---------------------------------------------------------------------------
 # Sidebar filters
@@ -249,15 +252,10 @@ with st.sidebar:
             value=minimum_energy,
             step=1.0,
             key=f"flt_energy_{fkey}",
+            help="Records with missing reported energy remain included because this threshold cannot be applied to them.",
         )
     else:
         energy_floor = 0.0
-    missing_energy_count = int(df["energy"].isna().sum())
-    if missing_energy_count:
-        st.caption(
-            f"{missing_energy_count:,} catalogue records have no reported energy; "
-            "they remain included because the energy filter cannot be applied to them."
-        )
 
     search_text = st.text_input(
         "Search records",
@@ -269,9 +267,7 @@ with st.sidebar:
 
 filtered = df.copy()
 filtered = filtered[filtered["review_status"].astype(str).isin(selected_statuses)]
-# Apply the minimum-energy filter only where energy was reported. Keep missing-energy
-# records visible so a numeric filter does not silently hide incomplete observations.
-filtered = filtered[filtered["energy"].isna() | (filtered["energy"] >= energy_floor)]
+filtered = apply_energy_floor(filtered, energy_floor)
 if date_range and isinstance(date_range, (tuple, list)) and len(date_range) == 2:
     start_date, end_date = date_range
     filtered = filtered[
@@ -292,13 +288,11 @@ inview_slot.markdown(ui.inview_html(len(filtered), total_records), unsafe_allow_
 # The page: one scrolling story
 # ===========================================================================
 
-_years = (max_date.year - min_date.year) if pd.notna(min_date) and pd.notna(max_date) else 0
-_flagged_any = int((df["baseline_flag"].eq(True) | df["iforest_flag"].eq(True)).sum())
-_first_year = int(min_date.year) if pd.notna(min_date) else None
-_last_year = int(max_date.year) if pd.notna(max_date) else None
+_first_year = int(summary.first_date.year) if summary.first_date is not None else None
+_last_year = int(summary.last_date.year) if summary.last_date is not None else None
 
 # ---- Opening: the catalogue as a sky ---------------------------------------
-say(ui.hero_html(df, years=_years, flagged_any=_flagged_any))
+say(ui.hero_html(df, years=summary.years, flagged_any=summary.flagged_any))
 
 _span = f" recorded between {_first_year} and {_last_year}" if _first_year and _last_year else ""
 say(
@@ -327,10 +321,9 @@ with chapter("sky"):
             )
         )
     else:
-        view_counts = filtered["review_status"].astype(str).value_counts()
         say(
             ui.status_key_html(
-                [(status, int(view_counts.get(status, 0))) for status in status_values],
+                count_by_status(filtered, status_values),
                 in_view=len(filtered),
                 catalogue=total_records,
             )
@@ -393,7 +386,7 @@ say(
         total=total_records,
         baseline_flags=baseline_count,
         forest_flags=ml_flag_count,
-        flagged_both=int((df["baseline_flag"].eq(True) & df["iforest_flag"].eq(True)).sum()),
+        flagged_both=summary.flagged_both,
     )
 )
 with chapter("detectors"):
@@ -456,7 +449,7 @@ with chapter("explore"):
             with export_left:
                 st.download_button(
                     "Structured review report (CSV)",
-                    data=structured_export.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                    data=csv_download(structured_export),
                     file_name="meteorwatch_structured_review_report.csv",
                     mime="text/csv",
                     help="One row per event, with readable units, decision explanations, missing-data notes and a suggested review action.",
@@ -468,15 +461,13 @@ with chapter("explore"):
                     data=cached_workbook(filtered, df),
                     file_name="meteorwatch_review_workbook.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Eight sheets, including detector agreement and the catalogue-wide score-threshold sensitivity study.",
+                    help="Nine sheets. The first five describe the filtered view; detector evaluation and the threshold-sensitivity study cover the whole catalogue, like the dashboard.",
                     key="download_review_workbook_v11",
                 )
             with export_right:
                 st.download_button(
                     "Technical data (CSV)",
-                    data=filtered.drop(columns=["map_latitude", "map_longitude"], errors="ignore")
-                    .to_csv(index=False, lineterminator="\n")
-                    .encode("utf-8-sig"),
+                    data=csv_download(filtered, ("map_latitude", "map_longitude")),
                     file_name="meteorwatch_filtered_technical_data.csv",
                     mime="text/csv",
                     help="The filtered source/technical columns, retained for analysis and reproducibility.",
@@ -609,7 +600,7 @@ with chapter("brief"):
             model_name = "openrouter/free"
             base_url = "https://openrouter.ai/api/v1"
             api_provider_name = "OpenAI-compatible API"
-            st.caption("OpenRouter free model information: https://openrouter.ai/docs/guides/routing/routers/free-router")
+            st.caption("OpenRouter free model information: https://openrouter.ai/docs/guides/routing/routers/free-models-router")
 
         elif provider == "Google Gemini API":
             st.markdown(
@@ -634,7 +625,7 @@ with chapter("brief"):
         elif provider == "Custom OpenAI-compatible API":
             st.markdown(
                 "For APIs that implement the OpenAI-compatible `/chat/completions` format. "
-                "Not every API uses this format. Ask your provider for its base URL and model name."
+                "Only the listed trusted HTTPS provider hosts are accepted; arbitrary endpoints are blocked."
             )
             base_url = st.text_input(
                 "HTTPS API base URL",
@@ -656,6 +647,11 @@ with chapter("brief"):
             )
             api_provider_name = "OpenAI-compatible API"
             st.caption("Provider models, rate limits, and billing depend on the provider/account you select.")
+            st.caption(
+                "For security, custom endpoints are limited to: api.groq.com, openrouter.ai, "
+                "api.deepseek.com, api.mistral.ai, api.together.xyz, api.cerebras.ai, "
+                "api.openai.com, api.x.ai, api.perplexity.ai and api.fireworks.ai."
+            )
 
         else:
             say(
@@ -897,7 +893,7 @@ with chapter("lab"):
         with export_eval_col:
             st.download_button(
                 "Detector evaluation summary (CSV)",
-                data=evaluation_table.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                data=csv_download(evaluation_table),
                 file_name="meteorwatch_detector_evaluation_summary.csv",
                 mime="text/csv",
                 key="download_detector_eval_summary_v10",
@@ -905,7 +901,7 @@ with chapter("lab"):
         with export_pair_col:
             st.download_button(
                 "Event-level detector comparison (CSV)",
-                data=pairwise_export.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                data=csv_download(pairwise_export),
                 file_name="meteorwatch_event_detector_comparison.csv",
                 mime="text/csv",
                 help="Includes comparable outcomes, unassessed records, and saved-field inconsistencies.",
@@ -963,7 +959,7 @@ with chapter("lab"):
             with sens_download_a:
                 st.download_button(
                     "Threshold sensitivity summary (CSV)",
-                    data=sensitivity_summary.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                    data=csv_download(sensitivity_summary),
                     file_name="meteorwatch_score_threshold_sensitivity_summary.csv",
                     mime="text/csv",
                     key="download_score_threshold_sensitivity_v11",
@@ -971,7 +967,7 @@ with chapter("lab"):
             with sens_download_b:
                 st.download_button(
                     "Event-level threshold comparison (CSV)",
-                    data=sensitivity_detail.to_csv(index=False, lineterminator="\n").encode("utf-8-sig"),
+                    data=csv_download(sensitivity_detail),
                     file_name="meteorwatch_score_threshold_sensitivity_events.csv",
                     mime="text/csv",
                     help="Includes all rows and labels records excluded because they were not assessed, have unknown assessment status, or lack a saved score.",
@@ -1124,17 +1120,14 @@ with chapter("lab"):
             )
         )
 
-        valid_dates = df["date"].dropna() if "date" in df.columns else pd.Series(dtype="datetime64[ns]")
-        date_start = valid_dates.min() if not valid_dates.empty else pd.NaT
-        date_end = valid_dates.max() if not valid_dates.empty else pd.NaT
+        date_start = summary.first_date if summary.first_date is not None else pd.NaT
+        date_end = summary.last_date if summary.last_date is not None else pd.NaT
         duplicate_rows = int(df.duplicated().sum())
-        ml_assessed_rows = int(df["ml_assessed"].eq(True).sum()) if "ml_assessed" in df else 0
-        ml_not_assessed_rows = int(df["ml_assessed"].eq(False).sum()) if "ml_assessed" in df else 0
-        ml_assessment_unknown_rows = int(df["ml_assessed"].isna().sum()) if "ml_assessed" in df else total_records
+        ml_assessed_rows = summary.ml_assessed
+        ml_not_assessed_rows = summary.ml_not_assessed
+        ml_assessment_unknown_rows = summary.ml_unknown
         ml_coverage_pct = (ml_assessed_rows / total_records * 100) if total_records else 0.0
-        coordinate_count_local = int(
-            df[["map_latitude", "map_longitude"]].notna().all(axis=1).sum()
-        ) if {"map_latitude", "map_longitude"}.issubset(df.columns) else 0
+        coordinate_count_local = summary.with_location
 
         q1, q2, q3, q4, q5 = st.columns(5)
         q1.metric("Total catalogue rows", f"{total_records:,}")

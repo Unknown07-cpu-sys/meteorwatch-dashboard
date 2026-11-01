@@ -68,15 +68,17 @@ The app reads `data/meteorwatch_full_review_report.csv`. (It also accepts the fi
 
 ```
 app.py                       Streamlit entry point: page flow, filters, chapters
-requirements.txt
+requirements.txt             what the app needs
+requirements-dev.txt         what the full test suite needs
 data/
   meteorwatch_full_review_report.csv
 meteorwatch/                 Python package
   agent.py                   decision interpretation, explanations, structured export, status audit, self-tests
   evaluation.py              coverage, inter-method agreement, event-level comparison
   sensitivity.py             score-threshold sensitivity study
-  exports.py                 multi-sheet Excel workbook
-  data.py                    report loading and normalisation
+  exports.py                 multi-sheet Excel workbook and CSV downloads
+  summary.py                 catalogue counts shared by the page and the export tests
+  data.py                    report loading, validation and normalisation
   briefing.py                rule-based briefing and optional AI briefing
   records.py                 record ordering, labels and the readable table
   ui/
@@ -85,8 +87,13 @@ meteorwatch/                 Python package
     components.py            status key, coverage bar, callouts, record sheet
     story.py                 hero sky, scroll statement, chapter heads, pinned scene, closing
     charts.py                Plotly figures and the shared dark template
-tests/                       unit tests (run with python -m unittest discover -s tests)
+tests/                       unit, export, provider-contract, chart and Streamlit tests
+tests/browser/               layout and clipping tests in a real browser (opt-in)
+tests/live/                  checks against real AI providers with your own keys (opt-in)
+docs/TESTING.md              what each test layer proves, and the defects found so far
+docs/PHASE1_REVIEW.md        Phase 1 findings, fixes and verification limits
 docs/DEPLOYMENT.md           deployment notes
+.github/workflows/tests.yml  runs the tests on every push
 .streamlit/config.toml       base theme colours
 .devcontainer/               optional GitHub Codespaces setup
 CHANGELOG.md                 version-by-version history

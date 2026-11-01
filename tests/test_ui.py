@@ -13,7 +13,7 @@ import pandas as pd
 
 from meteorwatch import ui
 from meteorwatch.agent import assess_event
-from meteorwatch.records import event_labels, records_table, sort_events
+from meteorwatch.records import apply_energy_floor, event_labels, records_table, sort_events
 
 try:
     import plotly  # noqa: F401
@@ -240,6 +240,18 @@ class StoryTests(unittest.TestCase):
         css = ui.theme_css()
         self.assertIn("prefers-reduced-motion:no-preference", css)
         self.assertIn("@supports (animation-timeline:view())", css)
+
+
+class EnergyFloorFilterTests(unittest.TestCase):
+    def test_missing_energy_is_retained_when_threshold_is_applied(self):
+        frame = pd.DataFrame({"energy": [None, 2.0, 10.0], "record": ["missing", "below", "above"]})
+        result = apply_energy_floor(frame, 5.0)
+        self.assertEqual(result["record"].tolist(), ["missing", "above"])
+
+    def test_non_numeric_energy_is_unavailable_not_zero(self):
+        frame = pd.DataFrame({"energy": ["not reported", "3", "8"], "record": ["missing", "below", "above"]})
+        result = apply_energy_floor(frame, 5.0)
+        self.assertEqual(result["record"].tolist(), ["missing", "above"])
 
 
 class RecordsTests(unittest.TestCase):

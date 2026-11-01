@@ -241,4 +241,8 @@ def build_sensitivity_summary_table(frame: pd.DataFrame) -> pd.DataFrame:
         rows.append(("Study availability", "Not available", "No records have both explicit ML assessment and a finite saved Isolation Forest score."))
     else:
         rows.append(("Study availability", "Available", "See the sensitivity scenarios for threshold-dependent selected-record counts and overlap."))
-    return pd.DataFrame(rows, columns=["Metric", "Value", "Interpretation"])
+    table = pd.DataFrame(rows, columns=["Metric", "Value", "Interpretation"])
+    # Values mix counts, percentages and explanatory labels; keep this report column
+    # textual for consistent display and serialization across Streamlit/PyArrow versions.
+    table["Value"] = table["Value"].map(lambda value: "" if value is None else str(value))
+    return table

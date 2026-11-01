@@ -23,6 +23,14 @@ SEARCH_COLUMNS = [
 ]
 
 
+def apply_energy_floor(frame: pd.DataFrame, minimum_energy: float) -> pd.DataFrame:
+    """Keep rows with unknown energy visible when applying a minimum-energy threshold."""
+    if "energy" not in frame.columns:
+        return frame.copy()
+    energy = pd.to_numeric(frame["energy"], errors="coerce")
+    return frame.loc[energy.isna() | (energy >= float(minimum_energy))].copy()
+
+
 def py_scalar(value: Any) -> Any:
     """Plain Python ints for index labels, so dict lookups and widget state stay predictable."""
     return int(value) if isinstance(value, np.integer) else value

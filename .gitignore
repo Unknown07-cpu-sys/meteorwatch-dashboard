@@ -17,6 +17,9 @@ Thumbs.db
 # Test caches
 .pytest_cache/
 
+# Browser-test screenshots
+tests/browser/screenshots/
+
 # Local Python environments
 .venv/
 venv/

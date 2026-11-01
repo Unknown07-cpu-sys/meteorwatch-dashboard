@@ -1,15 +1,27 @@
 # Changelog
 
-## Post-v13 maintenance — chart readability, endpoint hardening, and filter completeness
-
-- Increased Plotly chart margins and enabled automatic axis margins so numerical and category tick labels have room to render, including in narrow dashboard columns.
-- Added chart-layout regression tests for shared axis behaviour, the timeline, detector outcomes, and data completeness chart.
-- Restricted OpenAI-compatible briefing requests to HTTPS endpoints on explicitly supported provider hosts and blocked redirects to reduce the risk of arbitrary server-side requests.
-- Kept records with missing reported energy visible when the minimum-energy filter is used; the filter now applies only to records with a reported value, and the sidebar explains this behaviour.
-- Updated the Streamlit theme comment to point to the reorganised UI stylesheet and ignored local virtual-environment folders.
-
-
 Notable project changes are recorded here. This file tracks releases; `README.md` remains the stable overview of the project's purpose, transparent agent design, setup, and scientific limits.
+
+## Phase 1 review fixes
+
+- Preserved the existing chart-margin improvements while adopting the Phase 1 chart and test updates.
+- Restored the minimum-energy filter behaviour that keeps rows with missing energy visible, and added direct regression tests for missing and non-numeric values.
+- Restored HTTPS provider-host allowlisting and redirect blocking for OpenAI-compatible API requests.
+- Fixed two export regression tests: blank missing cells are checked as blanks in the actual CSV/XLSX serialization, rather than being misread as the literal text `nan` after pandas converts blank cells back to NaN.
+- Required pandas 2.0 or later for the mixed-date parser, and kept Streamlit's XSRF protection enabled in the devcontainer.
+- Added read-only permissions and job time limits to the GitHub Actions workflow.
+
+## v14 — Reliability (Phase 1)
+
+- **Status audit fixed.** It now compares all 360 assessed records instead of 38: it did not recognise the saved wording "Not flagged by either method". All 360 agree with their saved flags.
+- **Workbook matches the dashboard.** The Detector Evaluation sheet is now catalogue-wide, as on the dashboard, and Start Here says so. A new Threshold Sensitivity sheet adds the cutoff table the dashboard shows (nine sheets, was eight).
+- **Loader hardened.** Legacy encodings, semicolon separators, trimmed and case-insensitive headings, and mixed date formats or timezones are read. Infinite numbers become missing. A blank review status becomes "Status unavailable" instead of dropping the record from every view. Empty, binary, ragged, header-only, wrong-column and duplicate-column files stop with a plain message instead of a traceback. Output on the shipped catalogue is unchanged.
+- **Charts.** Axes now grow their margins to fit long labels, and the highest-energy label sits above its point and grows away from the nearest edge.
+- **One definition of each count.** `meteorwatch/summary.py` is used by the page and by the export tests, and `csv_download` builds every download.
+- **AI providers.** A non-JSON reply gives a clear error. The OpenRouter help link points at the current docs page. Verified against current docs: `gemini-3.5-flash-lite` and `openrouter/free` are valid model IDs.
+- **Tests: 54 became 167+.** New: unusual-file tests, export-consistency tests, offline provider-contract tests (including key hygiene), chart tests, a real-Streamlit page test, browser layout tests and opt-in live provider checks. `docs/TESTING.md` says what each layer proves. GitHub Actions runs them on every push.
+- The `METEORWATCH_DATA` environment variable points the app at a different report file.
+- Not run where they were written (no Streamlit, Plotly or browser available): the Streamlit page test, the browser tests, the real-Plotly chart tests and the live provider checks. See `docs/TESTING.md`.
 
 ## v13 — Scroll story and project reorganisation
 

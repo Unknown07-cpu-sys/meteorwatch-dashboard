@@ -388,6 +388,6 @@ def completeness_figure(completeness: pd.DataFrame) -> go.Figure:
         height=max(340, 34 * len(data) + 60),
         margin=dict(l=160, r=58, t=14, b=30),
         xaxis=dict(range=[0, 108], title=dict(text="Missing values (%)")),
-        yaxis=dict(autorange="reversed", showgrid=False, ticks=""),
+        yaxis=dict(autorange="reversed", showgrid=False, ticks="", automargin=True),
     )
     return fig

@@ -188,7 +188,12 @@ def build_detector_evaluation_table(frame: pd.DataFrame) -> pd.DataFrame:
         ("ML marked assessed but flag missing", metrics["ml_marked_assessed_but_flag_missing"], "Saved-field inconsistency or incomplete export; inspect these rows."),
         ("Ground-truth labels available", "No", "The project currently has no independently verified anomaly labels; precision, recall and accuracy are not estimated."),
     ]
-    return pd.DataFrame(rows, columns=["Metric", "Value", "Interpretation"])
+    table = pd.DataFrame(rows, columns=["Metric", "Value", "Interpretation"])
+    # This is a human-readable report column containing counts, percentages and labels.
+    # Keep it consistently textual so Streamlit/PyArrow does not infer an integer type
+    # from early rows and then fail on a later percentage string.
+    table["Value"] = table["Value"].map(lambda value: "" if value is None else str(value))
+    return table
 
 
 def build_event_level_comparison(frame: pd.DataFrame) -> pd.DataFrame:
